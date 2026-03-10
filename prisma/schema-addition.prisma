@@ -1,0 +1,26 @@
+// Add this at the end of schema.prisma file
+
+// Project Assignment - Links internal team members to projects
+model ProjectAssignment {
+  id          String   @id @default(cuid())
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Assignment details
+  role        String   // "lead", "developer", "support", etc.
+  isActive    Boolean  @default(true)
+  notes       String?  @db.Text
+  
+  assignedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([isActive])
+}

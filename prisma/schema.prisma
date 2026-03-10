@@ -1,0 +1,342 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================
+// USER & AUTHENTICATION
+// ============================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          Role     @default(USER)
+  emailVerified Boolean  @default(false)
+  
+  // Password Reset
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+  verificationToken String?  @unique
+  
+  // Internal Team Management (for MANAGER role)
+  managerId     String?  // Manager this employee reports to
+  manager       User?    @relation("ManagerEmployees", fields: [managerId], references: [id], onDelete: SetNull)
+  employees     User[]   @relation("ManagerEmployees")
+  
+  // Relations
+  cart          Cart?
+  orders        Order[]
+  tickets       SupportTicket[]
+  projectAssignments ProjectAssignment[]  // Projects assigned to this user (for EMPLOYEE/MANAGER)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+  @@index([managerId])
+}
+
+enum Role {
+  USER        // Regular customer who purchases projects
+  ADMIN       // Internal: Full system access, manages everything
+  MODERATOR   // Internal: Manages projects (CRUD)
+  MANAGER     // Internal: Manages employees, assigned to projects
+  EMPLOYEE    // Internal: Works on assigned projects, helps solve issues
+}
+
+// ============================
+// PROJECTS
+// ============================
+
+model Project {
+  id            String     @id @default(cuid())
+  slug          String     @unique
+  title         String
+  description   String     @db.Text
+  category      Category
+  techStack     String[]
+  features      String[]
+  
+  // Tier 1 - Code Only
+  tier1Price    Float
+  tier1Features String[]
+  tier1Files    Json       // { driveId: "...", type: "file/folder" }
+  
+  // Tier 2 - Code + Videos
+  tier2Price    Float
+  tier2Features String[]
+  tier2Files    Json       // { driveId: "...", videos: ["drive_id_1", ...] }
+  
+  // Tier 3 - Premium Support
+  tier3Price    Float
+  tier3Features String[]
+  tier3Files    Json       // Full package + support Drive IDs
+  
+  // Media
+  images        String[]   // S3 URLs or CloudFront URLs
+  thumbnailUrl  String?
+  videoUrl      String?
+  
+  // Architecture & Details
+  architectureDiagram String?
+  modulesBreakdown    String[] @db.Text
+  vivaQA             String?  @db.Text
+  
+  // Meta
+  isPublished   Boolean    @default(false)
+  views         Int        @default(0)
+  popularity    Int        @default(0)
+  
+  // Relations
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  assignments   ProjectAssignment[]  // Team members assigned to this project
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([slug])
+  @@index([category])
+  @@index([isPublished])
+}
+
+enum Category {
+  AI
+  WEB
+  ML
+  IOT
+  DBMS
+  MOBILE
+  BLOCKCHAIN
+  CYBERSECURITY
+  DATA
+}
+
+// ============================
+// CART
+// ============================
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  items     CartItem[]
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([userId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  tier      Int      // 1, 2, or 3
+  
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, projectId])
+}
+
+// ============================
+// ORDERS & PAYMENTS
+// ============================
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique @default(cuid())
+  
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  totalAmount     Float
+  status          OrderStatus @default(PENDING)
+  
+  // Razorpay Integration
+  razorpayOrderId   String?   @unique
+  razorpayPaymentId String?   @unique
+  razorpaySignature String?
+  
+  // Relations
+  items           OrderItem[]
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id])
+  
+  tier        Int     // 1, 2, or 3
+  price       Float
+  
+  // Relations
+  downloads   Download[]
+  
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// ============================
+// FILE DELIVERY
+// ============================
+
+model Download {
+  id            String    @id @default(cuid())
+  
+  orderItemId   String
+  orderItem     OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  
+  fileKey       String    // S3 key
+  downloadUrl   String    @db.Text // Signed URL
+  expiresAt     DateTime  // 24 hours from generation
+  
+  downloadedAt  DateTime?
+  ipAddress     String?
+  userAgent     String?
+  
+  createdAt     DateTime  @default(now())
+
+  @@index([orderItemId])
+  @@index([expiresAt])
+}
+
+// ============================
+// SUPPORT SYSTEM
+// ============================
+
+model SupportTicket {
+  id          String         @id @default(cuid())
+  ticketNumber String        @unique @default(cuid())
+  
+  userId      String
+  user        User           @relation(fields: [userId], references: [id])
+  
+  subject     String
+  description String         @db.Text
+  status      TicketStatus   @default(OPEN)
+  priority    Priority       @default(MEDIUM)
+  
+  // SLA Tracking
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  closedAt    DateTime?
+  
+  // Relations
+  responses   TicketResponse[]
+  attachments String[]       // S3 URLs
+
+  @@index([userId])
+  @@index([status])
+  @@index([ticketNumber])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model TicketResponse {
+  id        String        @id @default(cuid())
+  
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  message   String        @db.Text
+  isAdmin   Boolean       @default(false)
+  adminName String?
+  
+  attachments String[]
+  
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+// ============================
+// ANALYTICS (Future)
+// ============================
+
+model Analytics {
+  id          String   @id @default(cuid())
+  eventType   String   // page_view, project_view, purchase, download
+  eventData   Json
+  userId      String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+// ==============================
+// PROJECT TEAM ASSIGNMENTS
+// ==============================
+
+// Links internal team members (EMPLOYEE/MANAGER) to projects
+model ProjectAssignment {
+  id          String   @id @default(cuid())
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Assignment details
+  role        String   // "lead", "developer", "support", "qa", etc.
+  isActive    Boolean  @default(true)
+  notes       String?  @db.Text
+  
+  assignedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([isActive])
+}
