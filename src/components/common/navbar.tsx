@@ -9,7 +9,9 @@ import { useCart } from "@/context/CartContext";
 import { useSession } from "next-auth/react";
 
 const navLinks = [
+    { label: "Home", href: "/" },
     { label: "Projects", href: "/projects" },
+    { label: "Pricing", href: "/pricing" },
     { label: "How It Works", href: "/#how-it-works" },
     { label: "FAQ", href: "/#faq" },
 ];
