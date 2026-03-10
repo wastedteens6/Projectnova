@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import type { FeaturedProjectCard } from "@/components/landing/featured-projects";
 import {
   ArrowRight,
   CheckCircle,
@@ -46,31 +47,11 @@ const features = [
   "7-Day Money Back",
 ];
 
-const previewProjects = [
-  {
-    name: "AI Resume Analyzer",
-    stack: "React • Node • Python",
-    downloads: "1.2k",
-    rating: "4.9",
-    price: "₹1499",
-  },
-  {
-    name: "Blockchain Voting System",
-    stack: "Solidity • Next.js",
-    downloads: "820",
-    rating: "4.8",
-    price: "₹1799",
-  },
-  {
-    name: "Smart Attendance System",
-    stack: "React • ML",
-    downloads: "1k",
-    rating: "4.7",
-    price: "₹1399",
-  },
-];
+function formatPrice(price: number) {
+  return `Rs. ${price.toLocaleString("en-IN")}`;
+}
 
-export function Hero() {
+export function Hero({ projects }: { projects: FeaturedProjectCard[] }) {
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20">
 
@@ -204,7 +185,7 @@ export function Hero() {
             </div>
           </div>
 
-          {/* RIGHT SIDE – PROJECT PREVIEW */}
+          {/* RIGHT SIDE - PROJECT PREVIEW */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -213,30 +194,40 @@ export function Hero() {
           >
             <div className="grid gap-4">
 
-              {previewProjects.map((project, i) => (
-                <motion.div
-                  key={project.name}
-                  whileHover={{ scale: 1.04 }}
-                  transition={{ duration: 0.2 }}
-                  className="glass rounded-xl p-5 border border-white/10 backdrop-blur-md"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold">{project.name}</h3>
-                    <span className="text-sm text-violet-400">
-                      {project.price}
-                    </span>
-                  </div>
+              {projects.length > 0 ? (
+                projects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    whileHover={{ scale: 1.04 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Link
+                      href={`/projects/${project.slug}`}
+                      className="glass block rounded-xl border border-white/10 p-5 backdrop-blur-md transition-colors hover:border-violet-400/40"
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-4">
+                        <h3 className="font-semibold">{project.title}</h3>
+                        <span className="text-sm text-violet-400">
+                          {formatPrice(project.tier1Price)}
+                        </span>
+                      </div>
 
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {project.stack}
-                  </p>
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        {project.techStack.slice(0, 3).join(" / ")}
+                      </p>
 
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>⭐ {project.rating}</span>
-                    <span>{project.downloads} downloads</span>
-                  </div>
-                </motion.div>
-              ))}
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{project.category}</span>
+                        <span>{project.views} views</span>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="glass rounded-xl border border-white/10 p-5 text-sm text-muted-foreground backdrop-blur-md">
+                  No published projects available yet. Publish projects to populate the landing page.
+                </div>
+              )}
 
             </div>
           </motion.div>
@@ -247,7 +238,7 @@ export function Hero() {
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="glass rounded-2xl p-5 border border-white/[0.06]"
+              className="glass rounded-2xl border border-white/[0.06] p-5"
             >
               <div className="flex items-start justify-between mb-3">
                 <p className="text-3xl font-bold">{stat.value}</p>

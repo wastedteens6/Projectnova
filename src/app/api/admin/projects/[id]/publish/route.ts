@@ -24,6 +24,18 @@ export async function PATCH(
       return apiError('Project not found', HTTP.NOT_FOUND);
     }
 
+    // Validation: Cannot publish without images OR video
+    if (!project.isPublished) { // Only check when trying to publish (draft -> published)
+        const check = await prisma.project.findUnique({
+            where: { id: params.id },
+            select: { images: true, videoUrl: true }
+        });
+        
+        if (!check?.videoUrl && (!check?.images || check.images.length === 0)) {
+            return apiError('Cannot publish project without at least one image or a video', HTTP.BAD_REQUEST);
+        }
+    }
+
     const updated = await prisma.project.update({
       where: { id: params.id },
       data: { isPublished: !project.isPublished },

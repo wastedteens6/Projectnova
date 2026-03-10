@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Package } from 'lucide-react';
+import { ProjectBulkUpload } from '@/components/admin/project-bulk-upload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -90,6 +91,8 @@ export default function AdminProjectsPage() {
                     </Button>
                 </Link>
             </div>
+
+            <ProjectBulkUpload onSuccess={fetchProjects} />
 
             <Card className="glass-card">
                 <CardHeader>

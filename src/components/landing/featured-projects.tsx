@@ -14,6 +14,18 @@ import {
 import Link from "next/link";
 import TiltedCard from "@/components/animations/TiltedCard";
 
+export type FeaturedProjectCard = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  techStack: string[];
+  tier1Price: number;
+  tier3Price: number;
+  views: number;
+};
+
 type CategoryMeta = {
   gradient: string;
   icon: React.ElementType;
@@ -58,7 +70,7 @@ const CATEGORY_META: Record<string, CategoryMeta> = {
   },
 };
 
-async function getFeaturedProjects() {
+async function getFeaturedProjects(): Promise<FeaturedProjectCard[]> {
   return prisma.project.findMany({
     where: {
       isPublished: true,
@@ -82,11 +94,15 @@ async function getFeaturedProjects() {
 }
 
 function formatPrice(price: number) {
-  return price.toLocaleString("en-IN");
+  return `Rs. ${price.toLocaleString("en-IN")}`;
 }
 
-export async function FeaturedProjects() {
-  const projects = await getFeaturedProjects();
+export async function FeaturedProjects({
+  projects: initialProjects,
+}: {
+  projects?: FeaturedProjectCard[];
+}) {
+  const projects = initialProjects ?? await getFeaturedProjects();
 
   return (
     <section className="relative py-16 sm:py-20">
@@ -209,10 +225,10 @@ export async function FeaturedProjects() {
                     <div className="flex items-center justify-between pt-1">
                       <div>
                         <p className="text-xl font-bold">
-                          ₹{formatPrice(project.tier1Price)}
+                          {formatPrice(project.tier1Price)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          up to ₹{formatPrice(project.tier3Price)}
+                          up to {formatPrice(project.tier3Price)}
                         </p>
                       </div>
 
