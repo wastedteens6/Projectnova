@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Zap, Shield, Star, Rocket, HelpCircle } from "lucide-react";
+import { Check, Zap, Shield, Star, Rocket, HelpCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,14 +51,36 @@ const pricingTiers = [
             "Everything in Level 2",
             "One-on-One Session (30 mins)",
             "Deployment Support (Local/Cloud)",
-            "Custom Feature Tweak (Small)",
             "Priority Support Access",
+            "One Minor Customization",
             "Lifetime Updates"
         ],
         icon: <Shield className="h-6 w-6 text-emerald-400" />,
         gradient: "from-emerald-500/10 to-transparent",
         buttonVariant: "outline" as const,
+    },
+    {
+        level: 4,
+        name: "Level 4 - Enterprise",
+        description: "Bespoke projects built from scratch to your exact needs.",
+        price: "Custom",
+        features: [
+            "Tailor-made Architecture",
+            "Advanced Tech Integration",
+            "Extended Training Sessions",
+            "Full Documentation & PPT",
+            "Post-Presentation Edits",
+            "Dedicated Developer"
+        ],
+        icon: <Zap className="h-6 w-6 text-amber-400" />,
+        gradient: "from-amber-500/10 to-transparent",
+        buttonVariant: "outline" as const,
     }
+];
+
+const customizationAddons = [
+    { name: "Standard Customization", price: "300", description: "UI changes, small logic tweaks, or adding a new field." },
+    { name: "Major Customization", price: "1000", description: "New module, third-party API integration, or large logic overhaul." }
 ];
 
 export default function PricingPage() {
@@ -85,7 +107,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* Pricing Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {pricingTiers.map((tier, index) => (
                         <motion.div
                             key={tier.level}
@@ -152,6 +174,42 @@ export default function PricingPage() {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* Customization Add-ons Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8 }}
+                    className="mt-20 px-6 py-12 rounded-3xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-md"
+                >
+                    <div className="text-center mb-10">
+                        <h2 className="text-3xl font-bold flex items-center justify-center gap-3">
+                            <Sparkles className="h-6 w-6 text-violet-400" />
+                            Need Specific Changes?
+                        </h2>
+                        <p className="text-muted-foreground mt-2">Get professional customization on any project to make it uniquely yours.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                        {customizationAddons.map((addon) => (
+                            <div key={addon.name} className="p-6 rounded-2xl bg-card border border-border/50 hover:border-violet-500/30 transition-all flex flex-col gap-4">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="text-lg font-bold">{addon.name}</h3>
+                                        <p className="text-sm text-muted-foreground mt-1">{addon.description}</p>
+                                    </div>
+                                    <div className="text-2xl font-black text-violet-400">₹{addon.price}</div>
+                                </div>
+                                <Link href="/projects">
+                                    <Button variant="ghost" size="sm" className="w-full text-xs font-bold uppercase tracking-wider h-10 border border-violet-500/10 hover:bg-violet-500/5">
+                                        Choose a Project First
+                                    </Button>
+                                </Link>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
 
                 {/* FAQ / Info Section */}
                 <motion.div 

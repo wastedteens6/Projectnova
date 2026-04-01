@@ -1,4 +1,4 @@
-import { grantDriveAccess } from './src/lib/google-drive';
+import { grantDriveAccess } from '../src/lib/google-drive';
 
 /**
  * Basic test script to verify Google Drive credentials

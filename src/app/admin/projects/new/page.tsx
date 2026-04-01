@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-
-const CATEGORIES = ['AI', 'WEB', 'ML', 'MOBILE', 'BLOCKCHAIN', 'IOT', 'GAME', 'DATA', 'SECURITY', 'OTHER'];
+import { CATEGORIES, CATEGORY_LABELS, Category } from '@/types/project';
 
 function TagInput({ label, value, onChange }: { label: string; value: string[]; onChange: (v: string[]) => void }) {
     const [input, setInput] = useState('');
@@ -48,7 +47,7 @@ export default function NewProjectPage() {
         title: '',
         slug: '',
         description: '',
-        category: 'WEB',
+        category: 'WEB' as Category,
         techStack: [] as string[],
         features: [] as string[],
         tier1Price: '',
@@ -172,7 +171,7 @@ export default function NewProjectPage() {
                                 onChange={(e) => set('category', e.target.value)}
                                 className="w-full rounded-xl border border-border/50 bg-background/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >
-                                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                                {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
                             </select>
                         </div>
                         <div className="space-y-2">

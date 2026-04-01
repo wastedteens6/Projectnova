@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 declare global {
     interface Window {
@@ -15,6 +16,7 @@ declare global {
 export function CheckoutButton() {
     const { cartTotal, clearCart, closeCart, refreshCart } = useCart();
     const [isProcessing, setIsProcessing] = useState(false);
+    const { toast } = useToast();
     const router = useRouter();
 
     const loadRazorpayScript = (): Promise<boolean> => {
@@ -38,7 +40,11 @@ export function CheckoutButton() {
             // Load Razorpay script
             const loaded = await loadRazorpayScript();
             if (!loaded) {
-                alert('Failed to load payment gateway. Please try again.');
+                toast({
+                    title: 'Payment Gateway Error',
+                    description: 'Failed to load payment gateway. Please try again.',
+                    variant: 'destructive',
+                });
                 setIsProcessing(false);
                 return;
             }
@@ -48,7 +54,11 @@ export function CheckoutButton() {
             const data = await res.json();
 
             if (!data.success) {
-                alert(data.error || 'Failed to initiate checkout');
+                toast({
+                    title: 'Checkout Failed',
+                    description: data.error || 'Failed to initiate checkout',
+                    variant: 'destructive',
+                });
                 setIsProcessing(false);
                 return;
             }
@@ -85,7 +95,11 @@ export function CheckoutButton() {
                         closeCart();
                         router.push(`/checkout/success?order=${verifyData.data.orderNumber}`);
                     } else {
-                        alert('Payment verification failed. Please contact support.');
+                        toast({
+                            title: 'Verification Failed',
+                            description: 'Payment verification failed. Please contact support.',
+                            variant: 'destructive',
+                        });
                     }
                 },
                 prefill: {},
@@ -103,29 +117,81 @@ export function CheckoutButton() {
             rzp.open();
         } catch (err) {
             console.error('Checkout error:', err);
-            alert('Something went wrong. Please try again.');
+            toast({
+                title: 'Something went wrong',
+                description: 'Failed to process checkout. Please try again.',
+                variant: 'destructive',
+            });
             setIsProcessing(false);
         }
     };
 
+    const handleTestPurchase = async () => {
+        setIsProcessing(true);
+        try {
+            const res = await fetch('/api/checkout/test-purchase', { method: 'POST' });
+            const data = await res.json();
+
+            if (data.success) {
+                clearCart();
+                closeCart();
+                router.push(`/checkout/success?order=${data.data.orderNumber}&test=true`);
+                toast({
+                    title: 'Test Purchase Successful',
+                    description: 'Order processed via bypass mode.',
+                });
+            } else {
+                toast({
+                    title: 'Test Purchase Failed',
+                    description: data.error || 'Bypass failed',
+                    variant: 'destructive',
+                });
+            }
+        } catch (err) {
+            console.error('Test purchase error:', err);
+            toast({
+                title: 'Error',
+                description: 'Failed to process test purchase',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const showTestMode = process.env.NEXT_PUBLIC_ALLOW_TEST_PAYMENT === 'true';
+
     return (
-        <Button
-            onClick={handleCheckout}
-            disabled={isProcessing}
-            className="w-full h-12 text-base font-semibold"
-            variant="gradient"
-        >
-            {isProcessing ? (
-                <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                </>
-            ) : (
-                <>
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Pay ₹{cartTotal.toLocaleString()}
-                </>
+        <div className="space-y-2">
+            <Button
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                className="w-full h-12 text-base font-semibold"
+                variant="gradient"
+            >
+                {isProcessing ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                    </>
+                ) : (
+                    <>
+                        <ShoppingCart className="mr-2 h-4 w-4" />
+                        Pay ₹{cartTotal.toLocaleString()}
+                    </>
+                )}
+            </Button>
+
+            {showTestMode && (
+                <Button
+                    onClick={handleTestPurchase}
+                    disabled={isProcessing}
+                    variant="outline"
+                    className="w-full border-dashed border-primary/50 text-xs text-muted-foreground hover:bg-primary/5 h-8"
+                >
+                    Test Purchase (Bypass Payment)
+                </Button>
             )}
-        </Button>
+        </div>
     );
 }

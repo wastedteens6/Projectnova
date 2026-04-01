@@ -27,7 +27,8 @@ export const CATEGORIES = [
   { value: "DBMS", label: "Database Management" },
   { value: "MOBILE", label: "Mobile Development" },
   { value: "BLOCKCHAIN", label: "Blockchain" },
-  { value: "CYBERSECURITY", label: "Cybersecurity" }
+  { value: "CYBERSECURITY", label: "Cybersecurity" },
+  { value: "DATA", label: "Data Analytics" }
 ];
 
 // Tech Stacks

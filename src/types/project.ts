@@ -21,6 +21,10 @@ export interface Project {
   tier3Features: string[];
   tier3Files: any;
   
+  tier4Price?: number;
+  tier4Features: string[];
+  tier4Files?: any;
+  
   // Media
   images: string[];
   thumbnailUrl?: string;
@@ -47,7 +51,8 @@ export type Category =
   | 'DBMS'
   | 'MOBILE'
   | 'BLOCKCHAIN'
-  | 'CYBERSECURITY';
+  | 'CYBERSECURITY'
+  | 'DATA';
 
 export const CATEGORIES: Category[] = [
   'AI',
@@ -58,6 +63,7 @@ export const CATEGORIES: Category[] = [
   'MOBILE',
   'BLOCKCHAIN',
   'CYBERSECURITY',
+  'DATA',
 ];
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -69,6 +75,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   MOBILE: 'Mobile Development',
   BLOCKCHAIN: 'Blockchain',
   CYBERSECURITY: 'Cybersecurity',
+  DATA: 'Data Analytics',
 };
 
 // API Response Types

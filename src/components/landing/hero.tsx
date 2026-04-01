@@ -1,267 +1,174 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { FeaturedProjectCard } from "@/components/landing/featured-projects";
 import {
-  ArrowRight,
-  CheckCircle,
-  Sparkles,
-  Users,
-  Package,
-  TrendingUp,
-  Star,
-  Download,
+  Search,
+  LayoutGrid,
+  BookOpen,
+  CreditCard,
 } from "lucide-react";
 import { motion } from "framer-motion";
-
-import Aurora from "@/components/animations/Aurora";
-import DecryptedText from "@/components/animations/DecryptedText";
-import ShinyText from "@/components/animations/ShinyText";
-
-const stats = [
-  {
-    value: "5,000+",
-    label: "Students Helped",
-    icon: Users,
-    change: "+24% this month",
-  },
-  {
-    value: "200+",
-    label: "Premium Projects",
-    icon: Package,
-    change: "Across 10 domains",
-  },
-  {
-    value: "98%",
-    label: "Defense Success",
-    icon: TrendingUp,
-    change: "Project approval rate",
-  },
-];
-
-const features = [
-  "Instant Download",
-  "Complete Source Code",
-  "Viva Q&A Included",
-  "7-Day Money Back",
-];
+import { Input } from "@/components/ui/input";
 
 function formatPrice(price: number) {
   return `Rs. ${price.toLocaleString("en-IN")}`;
 }
 
-export function Hero({ projects }: { projects: FeaturedProjectCard[] }) {
+const popularTags = [
+  { label: "MERN Stack", category: "WEB" },
+  { label: "Python/AI", category: "AI" },
+  { label: "Blockchain", category: "BLOCKCHAIN" },
+  { label: "IoT Projects", category: "IOT" },
+];
+
+interface HeroProps {
+  projects: FeaturedProjectCard[];
+}
+
+const heroTabs = [
+  { label: "Projects", href: "/projects", icon: LayoutGrid },
+  { label: "Documentation", href: "/docs", icon: BookOpen },
+  { label: "Pricing", href: "/pricing", icon: CreditCard },
+];
+
+export function Hero({ projects }: HeroProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  
+  // Use the first project as the featured hero image
+  const featuredHero = projects?.[0] || {
+    title: "Eco-Friendly Dashboard",
+    category: "Web Development",
+    thumbnail: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/projects?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleTagClick = (category: string) => {
+    router.push(`/projects?category=${encodeURIComponent(category)}`);
+  };
+
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20">
-
-      {/* Aurora Background */}
-      <div className="absolute inset-0 z-0">
-        <Aurora
-          colorStops={["#1e1b4b", "#4c1d95", "#1e1b4b"]}
-          blend={0.5}
-          amplitude={1}
-          speed={0.5}
-        />
-      </div>
-
-      {/* Gradient Orbs */}
-      <div className="absolute inset-0 z-0">
-        <div className="orb orb-purple w-[700px] h-[700px] -top-48 -left-48 opacity-40" />
-        <div className="orb orb-indigo w-[600px] h-[600px] -bottom-32 -right-32 opacity-30" />
-      </div>
-
-      {/* Mesh overlay */}
-      <div className="absolute inset-0 mesh-grid opacity-20 pointer-events-none" />
-
-      {/* Content */}
-      <div className="container relative z-10 px-6 py-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-
-          {/* LEFT SIDE */}
-          <div className="space-y-8">
-
-            {/* Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="badge-pill inline-flex">
-                <Sparkles className="h-3.5 w-3.5" />
-                <ShinyText
-                  text="India's #1 Academic Project Marketplace"
-                  speed={3}
-                  shineColor="#c4b5fd"
-                />
-              </div>
-            </motion.div>
-
-            {/* Heading */}
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="space-y-4"
-            >
-              <h1 className="text-4xl md:text-6xl font-bold leading-[1.1] tracking-tight">
-                <DecryptedText
-                  text="Defense-Ready"
-                  animateOn="view"
-                  revealDirection="center"
-                  sequential
-                />
-                <br />
-                <span className="gradient-text">
-                  <DecryptedText
-                    text="Software Projects"
-                    animateOn="view"
-                    revealDirection="center"
-                    sequential
-                  />
-                </span>
-              </h1>
-
-              <p className="text-lg text-muted-foreground max-w-xl">
-                Premium academic projects with full source code,
-                installation videos, research documentation,
-                and viva preparation to help you succeed
-                in your final year project defense.
-              </p>
-            </motion.div>
-
-            {/* CTA */}
-            <motion.div
-              className="flex flex-col sm:flex-row gap-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.25 }}
-            >
-              <Link href="/projects">
-                <Button
-                  size="lg"
-                  className="group h-12 px-6 font-semibold shadow-lg shadow-violet-500/25"
+    <section className="relative pt-32 pb-20 overflow-hidden bg-white">
+      <div className="container mx-auto px-4 md:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          
+          {/* Left Column: Content */}
+          <div className="text-left">
+            {/* Tabs */}
+            <div className="flex items-center gap-6 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+              {heroTabs.map((tab) => (
+                <button
+                  key={tab.label}
+                  onClick={() => router.push(tab.href)}
+                  className="flex items-center gap-2 group whitespace-nowrap"
                 >
-                  Browse Projects
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition" />
-                </Button>
-              </Link>
-
-              <Link href="/auth/register">
-                <Button
-                  size="lg"
-                  variant="ghost"
-                  className="h-12 px-6 border border-border/60"
-                >
-                  Get Started Free
-                </Button>
-              </Link>
-            </motion.div>
-
-            {/* Feature Pills */}
-            <div className="flex flex-wrap gap-6 pt-2">
-              {features.map((f) => (
-                <div
-                  key={f}
-                  className="flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <CheckCircle className="h-4 w-4 text-violet-400" />
-                  {f}
-                </div>
+                  <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center group-hover:bg-black group-hover:border-black transition-all">
+                    <tab.icon className="h-4 w-4 text-gray-500 group-hover:text-white" />
+                  </div>
+                  <span className="text-sm font-bold text-gray-500 group-hover:text-black transition-colors">{tab.label}</span>
+                </button>
               ))}
             </div>
 
-            {/* Trust Indicators */}
-            <div className="flex items-center gap-6 text-sm text-muted-foreground pt-2">
-              <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                4.8 Student Rating
-              </div>
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-5xl md:text-7xl font-black tracking-tight text-gray-900 mb-8 leading-[1.05]"
+            >
+              Discover the world's top <span className="text-pink-500">software projects</span>
+            </motion.h1>
 
-              <div className="flex items-center gap-1">
-                <Download className="h-4 w-4" />
-                Instant Access
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-xl text-gray-700 font-medium mb-12 max-w-xl"
+            >
+              ProjectNova is the leading destination to find & buy premium academic projects.
+            </motion.p>
+
+            {/* Hero Search */}
+            <div className="relative group mb-8">
+              <form onSubmit={handleSearch} className="relative">
+                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-pink-500 transition-colors">
+                  <Search className="h-6 w-6" />
+                </div>
+                <Input 
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="What type of project are you looking for?"
+                  className="w-full h-16 bg-[#F3F3F7] border-none rounded-full px-16 text-lg focus-visible:ring-pink-500/20 placeholder:text-gray-500 font-medium transition-all"
+                />
+                <Button 
+                  type="submit"
+                  className="absolute right-2.5 top-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full w-11 h-11 flex items-center justify-center p-0 shadow-lg shadow-pink-500/30 transition-transform active:scale-95"
+                >
+                  <Search className="h-5 w-5" />
+                </Button>
+              </form>
+            </div>
+            
+            {/* Popular Tags */}
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500 font-medium">Popular:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {popularTags.map((tag) => (
+                  <button 
+                    key={tag.label}
+                    onClick={() => handleTagClick(tag.category)}
+                    className="px-4 py-1.5 rounded-full border border-gray-200 text-sm font-bold text-gray-700 hover:border-black hover:text-black transition-all"
+                  >
+                    {tag.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* RIGHT SIDE - PROJECT PREVIEW */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="relative"
+          {/* Right Column: Featured Image */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="hidden lg:block relative"
           >
-            <div className="grid gap-4">
-
-              {projects.length > 0 ? (
-                projects.map((project) => (
-                  <motion.div
-                    key={project.id}
-                    whileHover={{ scale: 1.04 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Link
-                      href={`/projects/${project.slug}`}
-                      className="glass block rounded-xl border border-white/10 p-5 backdrop-blur-md transition-colors hover:border-violet-400/40"
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-4">
-                        <h3 className="font-semibold">{project.title}</h3>
-                        <span className="text-sm text-violet-400">
-                          {formatPrice(project.tier1Price)}
-                        </span>
-                      </div>
-
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        {project.techStack.slice(0, 3).join(" / ")}
-                      </p>
-
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{project.category}</span>
-                        <span>{project.views} views</span>
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="glass rounded-xl border border-white/10 p-5 text-sm text-muted-foreground backdrop-blur-md">
-                  No published projects available yet. Publish projects to populate the landing page.
-                </div>
-              )}
-
-            </div>
-          </motion.div>
-        </div>
-
-        {/* STATS */}
-        <div className="grid sm:grid-cols-3 gap-4 pt-16 max-w-3xl mx-auto">
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="glass rounded-2xl border border-white/[0.06] p-5"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-3xl font-bold">{stat.value}</p>
-
-                <div className="p-2 rounded-lg bg-violet-500/10">
-                  <stat.icon className="h-4 w-4 text-violet-400" />
+            <div className="relative rounded-[40px] overflow-hidden aspect-[4/3] shadow-2xl group cursor-pointer">
+              <img 
+                src={(featuredHero as any).thumbnail || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"} 
+                alt={featuredHero.title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+              
+              {/* User Badge Overlay */}
+              <div className="absolute bottom-6 right-6">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur rounded-full shadow-lg border border-white/20">
+                  <div className="w-6 h-6 rounded-full bg-pink-500 flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                    {featuredHero.title.charAt(0)}
+                  </div>
+                  <span className="text-xs font-bold text-gray-900">{featuredHero.category}</span>
                 </div>
               </div>
-
-              <p className="text-sm font-medium text-foreground/80">
-                {stat.label}
-              </p>
-
-              <p className="text-xs text-muted-foreground mt-1">
-                {stat.change}
-              </p>
             </div>
-          ))}
+
+            {/* Floating Orbs for depth */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-100 rounded-full blur-[80px] -z-10 animate-pulse" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-50 rounded-full blur-[80px] -z-10" />
+          </motion.div>
+
         </div>
       </div>
-
-      {/* Bottom gradient fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
     </section>
   );
 }

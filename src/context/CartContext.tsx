@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
+import { useToast } from '@/hooks/use-toast';
 
 export interface CartItem {
     id: string;
@@ -41,6 +42,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const { toast } = useToast();
 
     const cartCount = items.length;
     const cartTotal = items.reduce((sum, item) => sum + item.price, 0);
@@ -94,15 +96,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({ projectId, tier }),
             });
             const data = await res.json();
-            if (data.success) {
+            if (res.ok && data.success) {
                 await refreshCart();
                 setIsOpen(true);
             } else {
-                alert(data.error || 'Failed to add item to cart');
+                toast({
+                    title: 'Cart Error',
+                    description: data.error || 'Failed to add item to cart',
+                    variant: 'destructive',
+                });
             }
         } catch (err) {
             console.error('Add to cart error:', err);
-            alert('Failed to add item to cart. Please check your connection.');
+            toast({
+                title: 'Connection Error',
+                description: 'Failed to add item to cart. Please check your connection.',
+                variant: 'destructive',
+            });
         } finally {
             setIsLoading(false);
         }
@@ -113,11 +123,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         // Optimistic update
         setItems((prev) => prev.filter((i) => i.projectId !== projectId));
         try {
-            await fetch('/api/cart', {
+            const res = await fetch('/api/cart', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId }),
             });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Failed to remove item from cart');
+            }
         } catch (err) {
             console.error('Failed to remove from cart:', err);
             await refreshCart(); // Revert on error

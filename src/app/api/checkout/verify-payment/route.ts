@@ -36,19 +36,34 @@ export async function POST(req: NextRequest) {
             return apiError('Invalid payment signature', HTTP.BAD_REQUEST);
         }
 
-        // 2. Update Order Status
-        const order = await prisma.order.update({
-            where: { razorpayOrderId: razorpayOrderId },
-            data: {
-                status: 'PAID',
-                razorpayPaymentId: razorpayPaymentId,
-                razorpaySignature: razorpaySignature,
-            },
+        const existingOrder = await prisma.order.findUnique({
+            where: { razorpayOrderId },
             include: { items: true },
         });
 
+        if (!existingOrder) {
+            return apiError('Order not found', HTTP.NOT_FOUND);
+        }
+
+        if (existingOrder.userId !== session.user.id) {
+            return apiError('Forbidden', HTTP.FORBIDDEN);
+        }
+
+        let order = existingOrder;
+        if (existingOrder.status !== 'PAID') {
+            order = await prisma.order.update({
+                where: { razorpayOrderId },
+                data: {
+                    status: 'PAID',
+                    razorpayPaymentId,
+                    razorpaySignature,
+                },
+                include: { items: true },
+            });
+        }
+
         // 3. Clear User's Cart
-        await prisma.cart.delete({
+        await prisma.cart.deleteMany({
             where: { userId: session.user.id },
         });
 

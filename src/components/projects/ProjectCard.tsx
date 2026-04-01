@@ -31,7 +31,7 @@ export function ProjectCard({
     tier3Price,
     views,
 }: ProjectCardProps) {
-    const imageUrl = thumbnailUrl || images[0] || '/placeholder-project.jpg';
+    const imageUrl = thumbnailUrl || images[0] || '/placeholder-project.png';
     const lowestPrice = tier1Price;
 
     return (

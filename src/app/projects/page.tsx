@@ -5,8 +5,22 @@ import { ProjectCard } from '@/components/projects/ProjectCard';
 import { ProjectFiltersBar } from '@/components/projects/ProjectFiltersBar';
 import { Pagination } from '@/components/projects/Pagination';
 import { ProjectFilters, ProjectListResponse } from '@/types/project';
+import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
-export default function ProjectsPage() {
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { Category, CATEGORIES } from '@/types/project';
+
+function ProjectsContent() {
+    const searchParams = useSearchParams();
+    const q = searchParams.get('q') || '';
+    const catParam = searchParams.get('category');
+    const initialCategory: Category | 'ALL' = (catParam && (CATEGORIES as string[]).includes(catParam)) 
+        ? catParam as Category 
+        : 'ALL';
+
     const [projects, setProjects] = useState<any[]>([]);
     const [pagination, setPagination] = useState({
         currentPage: 1,
@@ -17,8 +31,8 @@ export default function ProjectsPage() {
         hasPrevPage: false,
     });
     const [filters, setFilters] = useState<ProjectFilters>({
-        search: '',
-        category: 'ALL',
+        search: q,
+        category: initialCategory,
         techStack: '',
         sortBy: 'createdAt',
         order: 'desc',
@@ -27,6 +41,21 @@ export default function ProjectsPage() {
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // Sync filters with URL params on mount/change
+    useEffect(() => {
+        const currentQ = searchParams.get('q') || '';
+        const currentCat = searchParams.get('category');
+        const validatedCat: Category | 'ALL' = (currentCat && (CATEGORIES as string[]).includes(currentCat))
+            ? currentCat as Category
+            : 'ALL';
+
+        setFilters(prev => ({
+            ...prev,
+            search: currentQ,
+            category: validatedCat
+        }));
+    }, [searchParams]);
 
     // Fetch projects when filters change
     useEffect(() => {
@@ -86,13 +115,24 @@ export default function ProjectsPage() {
             {/* Content */}
             <div className="relative container mx-auto px-4 py-12 pt-28">
                 {/* Header */}
-                <div className="mb-12 text-center">
-                    <h1 className="mb-4 text-4xl md:text-6xl font-bold bg-gradient-to-r from-primary via-purple-500 to-primary bg-clip-text text-transparent animate-gradient">
-                        Project Catalog
-                    </h1>
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Discover premium final year projects with complete source code, documentation, and support
-                    </p>
+                <div className="mb-12 text-center space-y-6">
+                    <div className="space-y-4">
+                        <h1 className="text-4xl md:text-6xl font-black bg-gradient-to-r from-primary via-purple-500 to-primary bg-clip-text text-transparent animate-gradient">
+                            Project Catalog
+                        </h1>
+                        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                            Discover premium final year projects with complete source code, documentation, and support
+                        </p>
+                    </div>
+
+                    <div className="flex justify-center flex-col sm:flex-row gap-4">
+                        <Link href="/projects/custom">
+                            <Button variant="outline" className="h-12 px-8 rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary gap-2">
+                                <Sparkles className="h-4 w-4" />
+                                Request Custom Project
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -123,18 +163,8 @@ export default function ProjectsPage() {
                 {error && !loading && (
                     <div className="text-center py-12">
                         <div className="inline-flex items-center gap-2 text-destructive">
-                            <svg
-                                className="h-5 w-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             {error}
                         </div>
@@ -144,23 +174,11 @@ export default function ProjectsPage() {
                 {/* Empty State */}
                 {!loading && !error && projects.length === 0 && (
                     <div className="text-center py-12">
-                        <svg
-                            className="mx-auto h-12 w-12 text-muted-foreground mb-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
+                        <svg className="mx-auto h-12 w-12 text-muted-foreground mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <h3 className="text-lg font-semibold mb-2">No projects found</h3>
-                        <p className="text-muted-foreground">
-                            Try adjusting your filters or search terms
-                        </p>
+                        <p className="text-muted-foreground">Try adjusting your filters or search terms</p>
                     </div>
                 )}
 
@@ -185,5 +203,13 @@ export default function ProjectsPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function ProjectsPage() {
+    return (
+        <Suspense fallback={<div>Loading Projects...</div>}>
+            <ProjectsContent />
+        </Suspense>
     );
 }

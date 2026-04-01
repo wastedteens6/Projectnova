@@ -49,7 +49,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en" className="dark smooth-scroll">
+        <html lang="en" className="smooth-scroll">
             <body className={`${inter.className} custom-scrollbar`}>
                 <Providers>
                     <ConditionalNavbar />

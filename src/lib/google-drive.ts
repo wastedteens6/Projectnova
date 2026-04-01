@@ -1,16 +1,24 @@
-import { google } from 'googleapis';
-
 const SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.metadata.readonly', 'https://www.googleapis.com/auth/drive'];
 
-// Note: Ensure GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY (with \n replaced) are in .env
-const auth = new google.auth.JWT(
-  process.env.GOOGLE_CLIENT_EMAIL,
-  undefined,
-  process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  SCOPES
-);
+function getDriveClient() {
+  let googleapis: any;
 
-const drive = google.drive({ version: 'v3', auth });
+  try {
+    googleapis = require('googleapis');
+  } catch (error) {
+    console.warn('[Drive] googleapis package is not installed. Skipping Drive operations.');
+    return null;
+  }
+
+  const auth = new googleapis.google.auth.JWT(
+    process.env.GOOGLE_CLIENT_EMAIL,
+    undefined,
+    process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    SCOPES
+  );
+
+  return googleapis.google.drive({ version: 'v3', auth });
+}
 
 /**
  * Extracts Google Drive ID from a URL or returns the string if it's already an ID
@@ -44,6 +52,9 @@ export async function grantDriveAccess(fileOrLink: string, email: string) {
   if (!fileId) return null;
 
   try {
+    const drive = getDriveClient();
+    if (!drive) return null;
+
     const response = await drive.permissions.create({
       fileId: fileId,
       requestBody: {
@@ -67,6 +78,11 @@ export async function grantDriveAccess(fileOrLink: string, email: string) {
  */
 export async function getDriveLink(fileId: string) {
   try {
+    const drive = getDriveClient();
+    if (!drive) {
+      return `https://drive.google.com/file/d/${fileId}/view`;
+    }
+
     const file = await drive.files.get({
       fileId: fileId,
       fields: 'webViewLink',

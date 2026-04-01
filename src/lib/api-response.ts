@@ -22,9 +22,9 @@ export function apiSuccess<T>(data: T, message?: string, status = 200): NextResp
 /**
  * Returns a standardized JSON error response.
  */
-export function apiError(error: string, status = 500, details?: unknown): NextResponse<ApiErrorResponse> {
+export function apiError(error: string, status = 500, details?: unknown, isAdmin = false): NextResponse<ApiErrorResponse> {
   const body: ApiErrorResponse = { success: false, error };
-  if (details && process.env.NODE_ENV === 'development') {
+  if (details && (process.env.NODE_ENV === 'development' || isAdmin)) {
     body.details = details;
   }
   return NextResponse.json(body, { status });
@@ -39,6 +39,7 @@ export const HTTP = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  NOT_IMPLEMENTED: 501,
   UNPROCESSABLE: 422,
   TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,

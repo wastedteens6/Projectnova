@@ -37,6 +37,8 @@ model User {
   orders        Order[]
   tickets       SupportTicket[]
   projectAssignments ProjectAssignment[]  // Projects assigned to this user (for EMPLOYEE/MANAGER)
+  customProjectRequests    CustomProjectRequest[]
+  projectCustomizationRequests ProjectCustomizationRequest[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -82,6 +84,11 @@ model Project {
   tier3Features String[]
   tier3Files    Json       // Full package + support Drive IDs
   
+  // Tier 4 - Enterprise / Custom
+  tier4Price    Float?
+  tier4Features String[]
+  tier4Files    Json?      // Custom enterprise package
+  
   // Media
   images        String[]   // S3 URLs or CloudFront URLs
   thumbnailUrl  String?
@@ -101,6 +108,7 @@ model Project {
   cartItems     CartItem[]
   orderItems    OrderItem[]
   assignments   ProjectAssignment[]  // Team members assigned to this project
+  customizationRequests ProjectCustomizationRequest[]
   
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -108,6 +116,64 @@ model Project {
   @@index([slug])
   @@index([category])
   @@index([isPublished])
+}
+
+model CustomProjectRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String   @db.Text
+  techStack   String[]
+  budget      String?
+  deadline    DateTime?
+  status      RequestStatus @default(PENDING)
+  
+  adminNotes  String?  @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ProjectCustomizationRequest {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tier        Int      // 3 or 4
+  description String   @db.Text
+  type        CustomizationType @default(STANDARD) // STANDARD (300) or MAJOR (1000)
+  status      RequestStatus @default(PENDING)
+  
+  additionalCost Float @default(0) // Set by admin
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum RequestStatus {
+  PENDING
+  REVIEWED
+  CONTACTED
+  ACCEPTED
+  REJECTED
+  CLOSED
+}
+
+enum CustomizationType {
+  STANDARD
+  MAJOR
 }
 
 enum Category {

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
     const { slug } = params;
 
     const project = await prisma.project.findUnique({
@@ -54,9 +57,29 @@ export async function GET(
     // For now, we'll exclude it from the response
     const { assignments, ...projectData } = project;
 
+    // Check for user purchase if logged in
+    let purchasedTier = 0;
+    if (session?.user?.id) {
+      const purchase = await prisma.orderItem.findFirst({
+        where: {
+          projectId: project.id,
+          order: {
+            userId: session.user.id,
+            status: 'PAID',
+          },
+        },
+        orderBy: { tier: 'desc' },
+        select: { tier: true },
+      });
+      purchasedTier = purchase?.tier || 0;
+    }
+
     return NextResponse.json({
       success: true,
-      data: projectData,
+      data: {
+        ...projectData,
+        purchasedTier,
+      },
     });
   } catch (error) {
     console.error('Error fetching project:', error);
