@@ -1,0 +1,32 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer decorative squares -->
+  <g fill="none" stroke="#7F1D1D" stroke-width="8">
+    <!-- Top-left square -->
+    <rect x="30" y="30" width="40" height="40" rx="4"/>
+    <!-- Top-right square -->
+    <rect x="130" y="30" width="40" height="40" rx="4"/>
+    <!-- Bottom-left square -->
+    <rect x="30" y="130" width="40" height="40" rx="4"/>
+    <!-- Bottom-right square -->
+    <rect x="130" y="130" width="40" height="40" rx="4"/>
+    
+    <!-- Inner pattern squares -->
+    <rect x="55" y="60" width="30" height="30" rx="3"/>
+    <rect x="115" y="60" width="30" height="30" rx="3"/>
+    <rect x="55" y="110" width="30" height="30" rx="3"/>
+    <rect x="115" y="110" width="30" height="30" rx="3"/>
+    
+    <!-- Center cross -->
+    <rect x="75" y="85" width="50" height="30" rx="3"/>
+    <rect x="85" y="75" width="30" height="50" rx="3"/>
+  </g>
+  
+  <!-- Gold accents -->
+  <g fill="#D4AF37" opacity="0.8">
+    <circle cx="50" cy="50" r="4"/>
+    <circle cx="150" cy="50" r="4"/>
+    <circle cx="50" cy="150" r="4"/>
+    <circle cx="150" cy="150" r="4"/>
+    <circle cx="100" cy="100" r="5"/>
+  </g>
+</svg>
