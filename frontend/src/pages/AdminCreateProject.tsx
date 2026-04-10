@@ -1,10 +1,14 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
 export default function AdminCreateProject() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const isEditMode = !!id
 
   const [formData, setFormData] = useState({
     title: '',
@@ -15,10 +19,13 @@ export default function AdminCreateProject() {
     keyFeatures: '',
     tier1GoogleDrive: '',
     tier1Features: '',
+    tier1Price: '',
     tier2GoogleDrive: '',
     tier2Features: '',
+    tier2Price: '',
     tier3GoogleDrive: '',
     tier3Features: '',
+    tier3Price: '',
     isPublished: true
   })
 
@@ -27,9 +34,80 @@ export default function AdminCreateProject() {
   const [imagePreview, setImagePreview] = useState<string[]>([])
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [pageLoading, setPageLoading] = useState(isEditMode)
   const [alert, setAlert] = useState({ show: false, message: '', type: 'success' })
 
   const categories = ['Web', 'AI', 'ML', 'IoT', 'DBMS', 'Mobile', 'Blockchain', 'Cybersecurity', 'Data', 'other']
+
+  // Load project data for editing
+  useEffect(() => {
+    if (isEditMode && id) {
+      const fetchProject = async () => {
+        try {
+          const token = localStorage.getItem('token')
+          const res = await axios.get(`http://localhost:5000/api/admin/projects/all`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          
+          // Find the project by id
+          const project = res.data.data.find((p: any) => p.id === id)
+          if (!project) {
+            showAlert('Project not found', 'error')
+            navigate('/admin/projects')
+            return
+          }
+
+          // Populate form with existing data
+          setFormData({
+            title: project.title || '',
+            slug: project.slug || '',
+            category: project.category || 'Web',
+            description: project.description || '',
+            techStack: Array.isArray(project.tech_stack) ? project.tech_stack.join(', ') : project.tech_stack || '',
+            keyFeatures: Array.isArray(project.features) ? project.features.join(', ') : project.features || '',
+            tier1GoogleDrive: project.tiers?.[0]?.drive_link || '',
+            tier1Features: Array.isArray(project.tiers?.[0]?.features) ? project.tiers[0].features.join(', ') : '',
+            tier1Price: project.tiers?.[0]?.price?.toString() || '',
+            tier2GoogleDrive: project.tiers?.[1]?.drive_link || '',
+            tier2Features: Array.isArray(project.tiers?.[1]?.features) ? project.tiers[1].features.join(', ') : '',
+            tier2Price: project.tiers?.[1]?.price?.toString() || '',
+            tier3GoogleDrive: project.tiers?.[2]?.drive_link || '',
+            tier3Features: Array.isArray(project.tiers?.[2]?.features) ? project.tiers[2].features.join(', ') : '',
+            tier3Price: project.tiers?.[2]?.price?.toString() || '',
+            isPublished: project.is_published !== false
+          })
+
+          // Load existing images
+          if (project.media?.images && project.media.images.length > 0) {
+            setImagePreview(project.media.images.map((img: string) => {
+              if (!img.startsWith('http')) {
+                return `http://localhost:5000${img.startsWith('/') ? img : '/' + img}`
+              }
+              return img
+            }))
+          }
+
+          // Load existing video
+          if (project.media?.videos && project.media.videos.length > 0) {
+            const videoUrl = project.media.videos[0]
+            if (!videoUrl.startsWith('http')) {
+              setVideoPreview(`http://localhost:5000${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`)
+            } else {
+              setVideoPreview(videoUrl)
+            }
+          }
+
+          setPageLoading(false)
+        } catch (error) {
+          console.error('Error loading project:', error)
+          showAlert('Error loading project', 'error')
+          navigate('/admin/projects')
+        }
+      }
+
+      fetchProject()
+    }
+  }, [id, isEditMode, navigate])
 
   // Auto-generate slug from title
   const generateSlug = (title: string) => {
@@ -155,44 +233,46 @@ export default function AdminCreateProject() {
         data.append('previewVideo', previewVideo)
       }
 
-      const response = await axios.post(
-        'http://localhost:5000/api/admin/projects/create',
-        data,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      )
+      // Add tier prices
+      data.append('tier1Price', formData.tier1Price)
+      data.append('tier2Price', formData.tier2Price)
+      data.append('tier3Price', formData.tier3Price)
 
-      showAlert('Project created successfully!', 'success')
+      const url = isEditMode 
+        ? `http://localhost:5000/api/admin/projects/${id}`
+        : 'http://localhost:5000/api/admin/projects/create'
       
-      // Reset form
-      setFormData({
-        title: '',
-        slug: '',
-        category: 'Web',
-        description: '',
-        techStack: '',
-        keyFeatures: '',
-        tier1GoogleDrive: '',
-        tier1Features: '',
-        tier2GoogleDrive: '',
-        tier2Features: '',
-        tier3GoogleDrive: '',
-        tier3Features: '',
-        isPublished: true
+      const method = isEditMode ? 'put' : 'post'
+
+      const response = await axios({
+        method,
+        url,
+        data,
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Don't set Content-Type for FormData - axios will set it with boundary automatically
+        }
       })
-      setProjectImages([])
-      setPreviewVideo(null)
-      setImagePreview([])
-      setVideoPreview(null)
+
+      showAlert(isEditMode ? 'Project updated successfully!' : 'Project created successfully!', 'success')
+      
+      // Redirect after success
+      setTimeout(() => {
+        navigate('/admin/projects')
+      }, 1500)
     } catch (error: any) {
-      showAlert(error.response?.data?.error || 'Error creating project', 'error')
+      showAlert(error.response?.data?.error || `Error ${isEditMode ? 'updating' : 'creating'} project`, 'error')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (pageLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center pt-20 transition-all duration-300 ${isLight ? 'bg-white' : 'bg-slate-950'}`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      </div>
+    )
   }
 
   return (
@@ -217,10 +297,10 @@ export default function AdminCreateProject() {
 
         <h1 className={`text-4xl font-bold mb-2 transition-colors duration-300 ${
           isLight ? 'text-slate-900' : 'text-white'
-        }`}>Create New Project</h1>
+        }`}>{isEditMode ? 'Edit Project' : 'Create New Project'}</h1>
         <p className={`mb-8 transition-colors duration-300 ${
           isLight ? 'text-slate-600' : 'text-slate-300'
-        }`}>Add a new project to the platform</p>
+        }`}>{isEditMode ? 'Update project information' : 'Add a new project to the platform'}</p>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information */}
@@ -340,24 +420,30 @@ export default function AdminCreateProject() {
 
           {/* Tier System */}
           {[
-            { tier: 1, label: 'Tier 1: Code Only', defaultPrice: 499 },
-            { tier: 2, label: 'Tier 2: Code + Videos', defaultPrice: 999 },
-            { tier: 3, label: 'Tier 3: Premium Support', defaultPrice: 1999 }
-          ].map(({ tier, label, defaultPrice }) => (
+            { tier: 1, label: 'Tier 1: Code Only' },
+            { tier: 2, label: 'Tier 2: Code + Videos' },
+            { tier: 3, label: 'Tier 3: Premium Support' }
+          ].map(({ tier, label }) => (
             <div key={tier} className={`p-6 rounded-lg border transition-all duration-300 ${
               isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700'
             }`}>
               <h2 className="text-2xl font-bold mb-6">{label}</h2>
 
               <div className="mb-6">
-                <label className="block font-semibold mb-2">Price (₹)</label>
-                <div className={`w-full px-4 py-2 rounded-lg border ${
-                  isLight
-                    ? 'border-slate-300 bg-slate-100'
-                    : 'border-slate-600 bg-slate-700'
-                }`}>
-                  <span className="text-lg font-semibold">₹{defaultPrice}</span>
-                </div>
+                <label className="block font-semibold mb-2">Price (₹) *</label>
+                <input
+                  type="number"
+                  name={`tier${tier}Price`}
+                  value={formData[`tier${tier}Price` as keyof typeof formData]}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 499"
+                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
+                    isLight
+                      ? 'border-slate-300 bg-white focus:border-purple-600'
+                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
+                  }`}
+                  required
+                />
               </div>
 
               <div className="mb-6">
@@ -521,7 +607,7 @@ export default function AdminCreateProject() {
               disabled={loading}
               className="px-8 py-3 rounded-lg font-bold text-white bg-gradient-to-r from-purple-600 to-cyan-600 hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105 disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Project'}
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Project' : 'Create Project')}
             </button>
           </div>
         </form>

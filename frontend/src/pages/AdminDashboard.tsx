@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
 export default function AdminDashboard() {
@@ -7,268 +8,287 @@ export default function AdminDashboard() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const userRole = localStorage.getItem('userRole')
+  const userName = localStorage.getItem('userName')
   
+  const [projectCount, setProjectCount] = useState(0)
+  const [userCount, setUserCount] = useState(0)
+  const [orderCount, setOrderCount] = useState(0)
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   // Redirect if not admin
   if (userRole !== 'admin') {
     window.location.href = '/auth/login'
     return null
   }
 
+  // Fetch dashboard data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch projects
+        const projectsRes = await axios.get('http://localhost:5000/api/projects')
+        const projects = projectsRes.data.data || []
+        setProjectCount(projects.length)
+        console.log('Projects:', projects.length)
+
+        // Fetch users
+        try {
+          const token = localStorage.getItem('token')
+          const userRole = localStorage.getItem('userRole')
+          console.log('Fetching users - Token:', !!token, 'Role:', userRole)
+          
+          const usersRes = await axios.get('http://localhost:5000/api/auth/users', {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          console.log('Users response full:', usersRes.data)
+          
+          const users = usersRes.data.data || usersRes.data.users || []
+          const userLength = Array.isArray(users) ? users.length : 0
+          setUserCount(userLength)
+          console.log('Users count:', userLength)
+        } catch (userErr: any) {
+          console.error('Users fetch error:', {
+            status: userErr.response?.status,
+            error: userErr.response?.data?.error,
+            message: userErr.message
+          })
+          setUserCount(0)
+        }
+
+        // Fetch orders
+        const ordersRes = await axios.get('http://localhost:5000/api/orders', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        })
+        const orders = ordersRes.data.data || []
+        setOrderCount(orders.length)
+
+        // Calculate total revenue
+        const revenue = orders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
+        setTotalRevenue(revenue)
+        // Set recent orders (last 5)
+        setRecentOrders(orders.slice(0, 5))
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('userRole')
+    localStorage.removeItem('userName')
+    localStorage.removeItem('userEmail')
     window.location.href = '/auth/login'
-  }
-
-  const [projectCount, setProjectCount] = React.useState(0)
-  const [globalPrices, setGlobalPrices] = React.useState({ tier1: '499', tier2: '999', tier3: '1999' })
-  const [savingPrices, setSavingPrices] = React.useState(false)
-
-  React.useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const token = localStorage.getItem('token')
-        const projectsRes = await fetch('http://localhost:5000/api/admin/projects/all', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const data = await projectsRes.json()
-        if (data.success) {
-          setProjectCount(data.data.length || 0)
-        }
-
-        const settingsRes = await fetch('http://localhost:5000/api/admin/settings', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const settingsData = await settingsRes.json()
-        if (settingsData.success && settingsData.data) {
-          setGlobalPrices({
-            tier1: settingsData.data.tier1?.toString() || '499',
-            tier2: settingsData.data.tier2?.toString() || '999',
-            tier3: settingsData.data.tier3?.toString() || '1999'
-          })
-        }
-      } catch (err) {
-        console.error('Error fetching admin stats:', err)
-      }
-    }
-    fetchStats()
-  }, [])
-
-  const handleSavePrices = async () => {
-    setSavingPrices(true)
-    try {
-      const token = localStorage.getItem('token')
-      await fetch('http://localhost:5000/api/admin/settings', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          tier1: Number(globalPrices.tier1) || 0,
-          tier2: Number(globalPrices.tier2) || 0,
-          tier3: Number(globalPrices.tier3) || 0
-        })
-      })
-      alert('Global pricing saved successfully and applied to all projects!')
-    } catch(e) {
-      alert('Failed to save prices.')
-    } finally {
-      setSavingPrices(false)
-    }
   }
 
   return (
     <div className={`min-h-screen transition-all duration-300 ${isLight ? 'bg-slate-50' : 'bg-slate-950'}`}>
-      {/* Admin Header */}
-      <header className={`transition-all duration-300 ${isLight ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'} shadow-lg`}>
-        <div className="container flex items-center justify-between h-16">
+      {/* Simple Header */}
+      <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
+        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-            <p className={`text-sm transition-all duration-300 ${isLight ? 'text-purple-200' : 'text-cyan-200'}`}>Manage WastedTeens☠️</p>
+            <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Admin Dashboard</h1>
           </div>
           <button
             onClick={handleLogout}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${isLight ? 'bg-purple-500 hover:bg-purple-700' : 'bg-cyan-600 hover:bg-cyan-700'}`}
+            className="px-4 py-2 rounded-lg font-semibold transition-all bg-red-600 hover:bg-red-700 text-white"
           >
             Logout
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* Admin Content */}
-      <div className="container py-12">
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
-          <div className={`rounded-lg p-6 shadow-md border-l-4 transition-all duration-300 ${isLight ? 'bg-white border-red-600' : 'bg-slate-900 border-red-500'}`}>
-            <h3 className={`text-sm font-semibold mb-2 transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Total Projects</h3>
-            <p className={`text-4xl font-bold transition-all duration-300 ${isLight ? 'text-red-600' : 'text-red-400'}`}>{projectCount}</p>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className={`rounded-lg p-6 shadow-sm border-t-4 border-red-500 transition-all ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm font-medium ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>TOTAL PROJECTS</p>
+                <p className={`text-3xl font-bold mt-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>{projectCount}</p>
+                <p className={`text-xs mt-2 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>+12% from last month</p>
+              </div>
+              <span className="text-3xl">📦</span>
+            </div>
           </div>
-          <div className={`rounded-lg p-6 shadow-md border-l-4 transition-all duration-300 ${isLight ? 'bg-white border-blue-600' : 'bg-slate-900 border-blue-500'}`}>
-            <h3 className={`text-sm font-semibold mb-2 transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Total Users</h3>
-            <p className={`text-4xl font-bold transition-all duration-300 ${isLight ? 'text-blue-600' : 'text-blue-400'}`}>0</p>
+
+          <div className={`rounded-lg p-6 shadow-sm border-t-4 border-blue-500 transition-all ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm font-medium ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>TOTAL USERS</p>
+                <p className={`text-3xl font-bold mt-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>{userCount}</p>
+                <p className={`text-xs mt-2 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Elastic</p>
+              </div>
+              <span className="text-3xl">👥</span>
+            </div>
           </div>
-          <div className={`rounded-lg p-6 shadow-md border-l-4 transition-all duration-300 ${isLight ? 'bg-white border-green-600' : 'bg-slate-900 border-green-500'}`}>
-            <h3 className={`text-sm font-semibold mb-2 transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Total Orders</h3>
-            <p className={`text-4xl font-bold transition-all duration-300 ${isLight ? 'text-green-600' : 'text-green-400'}`}>0</p>
+
+          <div className={`rounded-lg p-6 shadow-sm border-t-4 border-purple-500 transition-all ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm font-medium ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>TOTAL ORDERS</p>
+                <p className={`text-3xl font-bold mt-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>{orderCount}</p>
+                <p className={`text-xs mt-2 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>New</p>
+              </div>
+              <span className="text-3xl">📋</span>
+            </div>
           </div>
-          <div className={`rounded-lg p-6 shadow-md border-l-4 transition-all duration-300 ${isLight ? 'bg-white border-yellow-600' : 'bg-slate-900 border-yellow-500'}`}>
-            <h3 className={`text-sm font-semibold mb-2 transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Revenue</h3>
-            <p className={`text-4xl font-bold transition-all duration-300 ${isLight ? 'text-yellow-600' : 'text-yellow-400'}`}>₹0</p>
+
+          <div className={`rounded-lg p-6 shadow-sm border-t-4 border-yellow-500 transition-all ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm font-medium ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>REVENUE</p>
+                <p className={`text-3xl font-bold mt-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>₹{totalRevenue.toLocaleString()}</p>
+                <p className={`text-xs mt-2 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Total 0%</p>
+              </div>
+              <span className="text-3xl">💰</span>
+            </div>
           </div>
         </div>
 
-        {/* Global Pricing Settings - MOVED TO TOP */}
-        <div className={`mb-12 rounded-lg shadow-md p-6 transition-all duration-300 ${isLight ? 'bg-white border-2 border-purple-200' : 'bg-slate-900 border-2 border-cyan-800'}`}>
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className={`text-2xl font-bold transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>Global Tier Pricing</h2>
-              <p className={`text-sm mt-1 mb-4 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Set base prices for tiers to automatically override across ALL published projects instantaneously.</p>
-            </div>
-            <button 
-              onClick={handleSavePrices} 
-              disabled={savingPrices}
-              className={`px-6 py-2 rounded-lg font-bold text-white transition-all transform hover:scale-105 disabled:opacity-50 ${isLight ? 'bg-purple-600 hover:bg-purple-700' : 'bg-cyan-600 hover:bg-cyan-700'}`}
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <h2 className={`text-lg font-bold mb-4 ${isLight ? 'text-slate-900' : 'text-white'}`}>Quick Actions</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <button
+              onClick={() => navigate('/admin/users')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
             >
-              {savingPrices ? 'Saving...' : '💾 Save Global Prices'}
+              <p className="text-2xl mb-2">👥</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Manage Users</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/projects')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <p className="text-2xl mb-2">📦</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Manage Projects</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/projects/create')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <p className="text-2xl mb-2">➕</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Create Project</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/orders')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <p className="text-2xl mb-2">📋</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>View Orders</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/support')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <p className="text-2xl mb-2">💬</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Support</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/analytics')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <p className="text-2xl mb-2">📊</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Analytics</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/custom-projects')}
+              className={`p-4 rounded-lg text-center hover:shadow-md transition-all relative ${isLight ? 'bg-white hover:bg-slate-50' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <p className="text-2xl mb-2">📝</p>
+              <p className={`text-xs font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Custom</p>
+              <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">NEW</span>
             </button>
           </div>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className={`p-4 rounded-lg border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
-              <label className={`block font-bold mb-2 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Tier 1 (Basic)</label>
-              <div className="flex items-center">
-                <span className="text-xl font-bold mr-2 text-slate-500">₹</span>
-                <input 
-                  type="number" 
-                  value={globalPrices.tier1} 
-                  onChange={e => setGlobalPrices(prev => ({...prev, tier1: e.target.value}))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none ${isLight ? 'border-slate-300 focus:border-purple-600' : 'border-slate-600 bg-slate-900 focus:border-cyan-500'}`}
-                />
-              </div>
-            </div>
-            <div className={`p-4 rounded-lg border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
-              <label className={`block font-bold mb-2 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Tier 2 (Standard)</label>
-              <div className="flex items-center">
-                <span className="text-xl font-bold mr-2 text-slate-500">₹</span>
-                <input 
-                  type="number" 
-                  value={globalPrices.tier2} 
-                  onChange={e => setGlobalPrices(prev => ({...prev, tier2: e.target.value}))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none ${isLight ? 'border-slate-300 focus:border-purple-600' : 'border-slate-600 bg-slate-900 focus:border-cyan-500'}`}
-                />
-              </div>
-            </div>
-            <div className={`p-4 rounded-lg border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800 border-slate-700'}`}>
-              <label className={`block font-bold mb-2 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Tier 3 (Premium)</label>
-              <div className="flex items-center">
-                <span className="text-xl font-bold mr-2 text-slate-500">₹</span>
-                <input 
-                  type="number" 
-                  value={globalPrices.tier3} 
-                  onChange={e => setGlobalPrices(prev => ({...prev, tier3: e.target.value}))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none ${isLight ? 'border-slate-300 focus:border-purple-600' : 'border-slate-600 bg-slate-900 focus:border-cyan-500'}`}
-                />
-              </div>
+        </div>
+
+        {/* Recent Orders Table */}
+        <div className={`rounded-lg shadow-sm p-6 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className={`text-lg font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Recent Orders</h2>
+            <div className="flex gap-2">
+              <button className={`px-3 py-1 text-sm rounded transition-all ${isLight ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-700'}`}>
+                ⬇️
+              </button>
+              <button className={`px-3 py-1 text-sm rounded transition-all ${isLight ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-700'}`}>
+                ↑↓
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Admin Menu */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <button 
-            onClick={() => navigate('/admin/users')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-red-600' : 'bg-slate-900 text-white border-red-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>👥 Manage Users</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>View, edit, and manage user accounts</p>
-          </button>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className={`border-b ${isLight ? 'border-slate-200' : 'border-slate-700'}`}>
+                  <th className={`text-left py-3 px-4 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>ORDER ID</th>
+                  <th className={`text-left py-3 px-4 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>CUSTOMER</th>
+                  <th className={`text-left py-3 px-4 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>PROJECT</th>
+                  <th className={`text-left py-3 px-4 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>AMOUNT</th>
+                  <th className={`text-left py-3 px-4 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>STATUS</th>
+                  <th className={`text-left py-3 px-4 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className={`py-8 text-center ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                      No recent orders yet. Data will appear here when orders are placed.
+                    </td>
+                  </tr>
+                ) : (
+                  recentOrders.map((order: any, idx: number) => (
+                    <tr key={order.id} className={`border-b transition-all ${isLight ? 'border-slate-100 hover:bg-slate-50' : 'border-slate-700 hover:bg-slate-700'}`}>
+                      <td className={`py-3 px-4 font-semibold text-blue-600`}>ORD-{String(idx + 1).padStart(4, '0')}</td>
+                      <td className={`py-3 px-4 ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-sm font-bold">
+                            {(order.name || order.email)[0]}
+                          </div>
+                          <span>{order.name || order.email}</span>
+                        </div>
+                      </td>
+                      <td className={`py-3 px-4 ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>{order.project_title || 'N/A'}</td>
+                      <td className={`py-3 px-4 font-semibold ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>₹{order.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isLight ? 'bg-green-100 text-green-700' : 'bg-green-900 text-green-200'}`}>
+                          COMPLETED
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <button className={`px-2 py-1 ${isLight ? 'text-slate-500 hover:text-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>
+                          ⋮
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          <button 
-            onClick={() => navigate('/admin/projects')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-blue-600' : 'bg-slate-900 text-white border-blue-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>📦 Manage Projects</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Add, edit, and delete projects</p>
-          </button>
-
-          <button 
-            onClick={() => navigate('/admin/projects/create')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-cyan-600' : 'bg-slate-900 text-white border-cyan-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>➕ Create Project</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Add a new project to the platform</p>
-          </button>
-
-          <button 
-            onClick={() => navigate('/admin/orders')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-green-600' : 'bg-slate-900 text-white border-green-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>📋 View Orders</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Manage customer orders and payments</p>
-          </button>
-
-          <button 
-            onClick={() => navigate('/admin/support')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-yellow-600' : 'bg-slate-900 text-white border-yellow-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>💬 Support Tickets</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Respond to customer support tickets</p>
-          </button>
-
-          <button 
-            onClick={() => navigate('/admin/analytics')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-pink-600' : 'bg-slate-900 text-white border-pink-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>📊 Analytics</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>View sales and traffic analytics</p>
-          </button>
-
-          <button 
-            onClick={() => navigate('/admin/settings')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left ${isLight ? 'bg-white text-slate-900 border-indigo-600' : 'bg-slate-900 text-white border-indigo-500'}`}
-          >
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>⚙️ Settings</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Configure system settings</p>
-          </button>
-
-          <button 
-            onClick={() => navigate('/admin/custom-projects')} 
-            className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border-t-4 text-left relative ${isLight ? 'bg-white text-slate-900 border-orange-600' : 'bg-slate-900 text-white border-orange-500'}`}
-          >
-            <div className="absolute top-3 right-3">
-              <div className={`px-2 py-1 rounded-full text-xs font-bold ${isLight ? 'bg-orange-500 text-white' : 'bg-orange-500 text-white'}`}>
-                ⭐ NEW
-              </div>
+          {recentOrders.length > 0 && (
+            <div className="mt-4 text-center border-t pt-4">
+              <button
+                onClick={() => navigate('/admin/orders')}
+                className={`font-semibold transition-all ${isLight ? 'text-purple-600 hover:text-purple-700' : 'text-purple-400 hover:text-purple-300'}`}
+              >
+                View All {orderCount} Orders
+              </button>
             </div>
-            <h3 className={`text-xl font-bold mb-2 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>📝 Custom Projects</h3>
-            <p className={`transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Review user custom project requests</p>
-          </button>
+          )}
         </div>
-
-        {/* Recent Orders */}
-        <div className={`mt-12 rounded-lg shadow-md p-6 transition-all duration-300 ${isLight ? 'bg-white' : 'bg-slate-900'}`}>
-          <h2 className={`text-2xl font-bold mb-6 transition-all duration-300 ${isLight ? 'text-slate-900' : 'text-white'}`}>Recent Orders</h2>
-          <table className="w-full">
-            <thead className={`border-b-2 transition-all duration-300 ${isLight ? 'border-slate-200' : 'border-slate-700'}`}>
-              <tr>
-                <th className={`text-left py-3 font-semibold transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Order ID</th>
-                <th className={`text-left py-3 font-semibold transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Customer</th>
-                <th className={`text-left py-3 font-semibold transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Project</th>
-                <th className={`text-left py-3 font-semibold transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Amount</th>
-                <th className={`text-left py-3 font-semibold transition-all duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={5} className={`py-8 text-center transition-all duration-300 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
-                  No orders found
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-
       </div>
     </div>
   )

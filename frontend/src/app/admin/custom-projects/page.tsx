@@ -36,29 +36,7 @@ export default function AdminCustomProjects() {
     }
   }, [])
 
-  // Mock data for demonstration
-  useEffect(() => {
-    if (projects.length === 0) {
-      const mockProjects: CustomProject[] = [
-        {
-          id: '1',
-          projectName: 'AI Chatbot System',
-          description: 'Build a conversational AI chatbot using NLP for customer support',
-          technologies: 'Python, TensorFlow, Flask, React',
-          domain: 'Artificial Intelligence',
-          inputOutput: 'Takes user queries as input, outputs intelligent responses with confidence scores',
-          deliverables: ['ppt', 'report', 'source'],
-          expectedDeadline: '2026-05-15',
-          email: 'student1@example.com',
-          phone: '+91-9876543210',
-          budget: '₹5,000 - ₹8,000',
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        }
-      ]
-      setProjects(mockProjects)
-    }
-  }, [])
+  // No mock data - wait for actual data
 
   const filteredProjects = projects.filter(project => {
     const statusMatch = filterStatus === 'all' || project.status === filterStatus

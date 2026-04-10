@@ -66,32 +66,59 @@ router.post("/create", adminAuth, upload.any(), async (req, res) => {
       keyFeatures,
       tier1GoogleDrive,
       tier1Features,
+      tier1Price,
       tier2GoogleDrive,
       tier2Features,
+      tier2Price,
       tier3GoogleDrive,
       tier3Features,
+      tier3Price,
       isPublished,
     } = req.body;
 
     if (!title || !category || !description) {
-      return res.status(400).json({ error: "Title, category, and description are required" });
+      return res
+        .status(400)
+        .json({ error: "Title, category, and description are required" });
     }
 
     const slug = generateSlug(title);
 
     // Prepare JSONB columns
-    const techStackArr = Array.isArray(techStack) ? techStack : (techStack?.split(",").map(t => t.trim()) || []);
-    const featuresArr = Array.isArray(keyFeatures) ? keyFeatures : (keyFeatures?.split(",").map(f => f.trim()) || []);
-    
+    const techStackArr = Array.isArray(techStack)
+      ? techStack
+      : techStack?.split(",").map((t) => t.trim()) || [];
+    const featuresArr = Array.isArray(keyFeatures)
+      ? keyFeatures
+      : keyFeatures?.split(",").map((f) => f.trim()) || [];
+
     const tiers = [
-      { level: 1, name: "Basic", drive_link: tier1GoogleDrive, features: tier1Features?.split(",").map(f => f.trim()) || [] },
-      { level: 2, name: "Standard", drive_link: tier2GoogleDrive, features: tier2Features?.split(",").map(f => f.trim()) || [] },
-      { level: 3, name: "Premium", drive_link: tier3GoogleDrive, features: tier3Features?.split(",").map(f => f.trim()) || [] }
-    ].filter(t => t.drive_link);
+      {
+        level: 1,
+        name: "Basic",
+        price: parseInt(tier1Price) || 0,
+        drive_link: tier1GoogleDrive,
+        features: tier1Features?.split(",").map((f) => f.trim()) || [],
+      },
+      {
+        level: 2,
+        name: "Standard",
+        price: parseInt(tier2Price) || 0,
+        drive_link: tier2GoogleDrive,
+        features: tier2Features?.split(",").map((f) => f.trim()) || [],
+      },
+      {
+        level: 3,
+        name: "Premium",
+        price: parseInt(tier3Price) || 0,
+        drive_link: tier3GoogleDrive,
+        features: tier3Features?.split(",").map((f) => f.trim()) || [],
+      },
+    ].filter((t) => t.drive_link);
 
     const media = { images: [], videos: [] };
     const files = req.files || [];
-    files.forEach(file => {
+    files.forEach((file) => {
       if (file.fieldname.startsWith("projectImages")) {
         media.images.push(`/uploads/projects/images/${file.filename}`);
       } else if (file.fieldname === "previewVideo") {
@@ -99,25 +126,31 @@ router.post("/create", adminAuth, upload.any(), async (req, res) => {
       }
     });
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       INSERT INTO "Project" (
         title, slug, description, category, 
         is_published, tech_stack, features, tiers, media
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `, [
-      title, slug, description, category,
-      isPublished === "true" || isPublished === true,
-      JSON.stringify(techStackArr),
-      JSON.stringify(featuresArr),
-      JSON.stringify(tiers),
-      JSON.stringify(media)
-    ]);
+    `,
+      [
+        title,
+        slug,
+        description,
+        category,
+        isPublished === "true" || isPublished === true,
+        JSON.stringify(techStackArr),
+        JSON.stringify(featuresArr),
+        JSON.stringify(tiers),
+        JSON.stringify(media),
+      ],
+    );
 
     res.status(201).json({
       success: true,
       message: "Project created successfully",
-      project: result.rows[0]
+      project: result.rows[0],
     });
   } catch (error) {
     console.error("Error creating project:", error);
@@ -130,77 +163,179 @@ router.post("/create", adminAuth, upload.any(), async (req, res) => {
  */
 router.get("/all", adminAuth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Project" ORDER BY created_at DESC');
+    const result = await pool.query(
+      'SELECT * FROM "Project" ORDER BY created_at DESC',
+    );
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching projects" });
-  }
-});
-
-const SETTINGS_FILE = path.join(process.cwd(), 'global_settings.json');
-
-/**
- * @route GET /api/admin/settings
- */
-router.get("/settings", adminAuth, (req, res) => {
-  try {
-    if (!fs.existsSync(SETTINGS_FILE)) return res.json({ success: true, data: { tier1: 499, tier2: 999, tier3: 1999 } });
-    res.json({ success: true, data: JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) });
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching settings" });
+    console.error("Error fetching all projects:", error);
+    res
+      .status(500)
+      .json({ error: "Error fetching projects", details: error.message });
   }
 });
 
 /**
- * @route POST /api/admin/settings
+ * @route PUT /api/admin/projects/:id/toggle-featured
+ * @description Toggle featured status of a project
  */
-router.post("/settings", adminAuth, (req, res) => {
+router.put("/:id/toggle-featured", adminAuth, async (req, res) => {
   try {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(req.body, null, 2));
-    res.json({ success: true, message: "Settings saved successfully" });
+    const { id } = req.params;
+
+    // Get current featured status
+    const projectResult = await pool.query(
+      'SELECT is_featured FROM "Project" WHERE id = $1',
+      [id],
+    );
+
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const currentFeatured = projectResult.rows[0].is_featured || false;
+    const newFeatured = !currentFeatured;
+
+    // Update featured status
+    const result = await pool.query(
+      `UPDATE "Project" SET is_featured = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
+      [newFeatured, id],
+    );
+
+    res.json({
+      success: true,
+      message: newFeatured
+        ? "Project featured successfully"
+        : "Project unfeatured successfully",
+      project: result.rows[0],
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error saving settings" });
+    console.error("Error toggling featured status:", error);
+
+    // Check if it's a column missing error
+    if (error.message && error.message.includes("is_featured")) {
+      return res.status(500).json({
+        error:
+          'Database not updated. Please run the migration: UPDATE "Project" SET is_featured = false WHERE is_featured IS NULL or is_featured doesn\'t exist',
+        details: error.message,
+      });
+    }
+
+    res
+      .status(500)
+      .json({
+        error: "Failed to toggle featured status",
+        details: error.message,
+      });
   }
 });
 
 /**
  * @route PUT /api/admin/projects/:id
+ * @description Update an existing project
  */
 router.put("/:id", adminAuth, upload.any(), async (req, res) => {
   try {
+    console.log(`🔄 UPDATE PROJECT REQUEST: ID=${req.params.id}`);
     const { id } = req.params;
     const {
-      title, category, description, techStack, keyFeatures,
-      tier1GoogleDrive, tier1Features, tier1Price,
-      tier2GoogleDrive, tier2Features, tier2Price,
-      tier3GoogleDrive, tier3Features, tier3Price,
-      isPublished
+      title,
+      category,
+      description,
+      techStack,
+      keyFeatures,
+      tier1GoogleDrive,
+      tier1Features,
+      tier1Price,
+      tier2GoogleDrive,
+      tier2Features,
+      tier2Price,
+      tier3GoogleDrive,
+      tier3Features,
+      tier3Price,
+      isPublished,
     } = req.body;
 
-    const oldProject = await pool.query('SELECT * FROM "Project" WHERE id = $1', [id]);
-    if (oldProject.rows.length === 0) return res.status(404).json({ error: "Not found" });
-    
+    const oldProject = await pool.query(
+      'SELECT * FROM "Project" WHERE id = $1',
+      [id],
+    );
+    if (oldProject.rows.length === 0)
+      return res.status(404).json({ error: "Not found" });
+
     const project = oldProject.rows[0];
 
     // Update fields or keep old ones
     const newTitle = title || project.title;
     const slug = title ? generateSlug(title) : project.slug;
-    
-    const techStackArr = techStack ? (Array.isArray(techStack) ? techStack : techStack.split(",").map(t => t.trim())) : project.tech_stack;
-    const featuresArr = keyFeatures ? (Array.isArray(keyFeatures) ? keyFeatures : keyFeatures.split(",").map(f => f.trim())) : project.features;
+
+    const techStackArr = techStack
+      ? Array.isArray(techStack)
+        ? techStack
+        : techStack.split(",").map((t) => t.trim())
+      : project.tech_stack;
+    const featuresArr = keyFeatures
+      ? Array.isArray(keyFeatures)
+        ? keyFeatures
+        : keyFeatures.split(",").map((f) => f.trim())
+      : project.features;
 
     let tiers = project.tiers || [];
     if (tier1GoogleDrive || tier2GoogleDrive || tier3GoogleDrive) {
-        tiers = [
-            { level: 1, name: "Basic", drive_link: tier1GoogleDrive || tiers[0]?.drive_link, features: tier1Features?.split(",").map(f => f.trim()) || tiers[0]?.features || [] },
-            { level: 2, name: "Standard", drive_link: tier2GoogleDrive || tiers[1]?.drive_link, features: tier2Features?.split(",").map(f => f.trim()) || tiers[1]?.features || [] },
-            { level: 3, name: "Premium", drive_link: tier3GoogleDrive || tiers[2]?.drive_link, features: tier3Features?.split(",").map(f => f.trim()) || tiers[2]?.features || [] }
-        ].filter(t => t.drive_link);
+      tiers = [
+        {
+          level: 1,
+          name: "Basic",
+          price: tier1Price ? parseInt(tier1Price) : tiers[0]?.price || 0,
+          drive_link: tier1GoogleDrive || tiers[0]?.drive_link,
+          features:
+            tier1Features?.split(",").map((f) => f.trim()) ||
+            tiers[0]?.features ||
+            [],
+        },
+        {
+          level: 2,
+          name: "Standard",
+          price: tier2Price ? parseInt(tier2Price) : tiers[1]?.price || 0,
+          drive_link: tier2GoogleDrive || tiers[1]?.drive_link,
+          features:
+            tier2Features?.split(",").map((f) => f.trim()) ||
+            tiers[1]?.features ||
+            [],
+        },
+        {
+          level: 3,
+          name: "Premium",
+          price: tier3Price ? parseInt(tier3Price) : tiers[2]?.price || 0,
+          drive_link: tier3GoogleDrive || tiers[2]?.drive_link,
+          features:
+            tier3Features?.split(",").map((f) => f.trim()) ||
+            tiers[2]?.features ||
+            [],
+        },
+      ].filter((t) => t.drive_link);
+    } else if (tier1Price || tier2Price || tier3Price) {
+      // Update only prices if tiers haven't changed
+      tiers = tiers.map((t) => ({
+        ...t,
+        price:
+          t.level === 1
+            ? tier1Price
+              ? parseInt(tier1Price)
+              : t.price
+            : t.level === 2
+              ? tier2Price
+                ? parseInt(tier2Price)
+                : t.price
+              : tier3Price
+                ? parseInt(tier3Price)
+                : t.price,
+      }));
     }
 
     const media = project.media || { images: [], videos: [] };
     const files = req.files || [];
-    files.forEach(file => {
+    files.forEach((file) => {
       if (file.fieldname.startsWith("projectImages")) {
         media.images.push(`/uploads/projects/images/${file.filename}`);
       } else if (file.fieldname === "previewVideo") {
@@ -208,24 +343,36 @@ router.put("/:id", adminAuth, upload.any(), async (req, res) => {
       }
     });
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       UPDATE "Project" SET
         title = $1, slug = $2, description = $3, category = $4,
         is_published = $5, tech_stack = $6, features = $7, 
         tiers = $8, media = $9, updated_at = CURRENT_TIMESTAMP
       WHERE id = $10
       RETURNING *
-    `, [
-      newTitle, slug, description || project.description, category || project.category,
-      isPublished !== undefined ? (isPublished === "true" || isPublished === true) : project.is_published,
-      JSON.stringify(techStackArr),
-      JSON.stringify(featuresArr),
-      JSON.stringify(tiers),
-      JSON.stringify(media),
-      id
-    ]);
+    `,
+      [
+        newTitle,
+        slug,
+        description || project.description,
+        category || project.category,
+        isPublished !== undefined
+          ? isPublished === "true" || isPublished === true
+          : project.is_published,
+        JSON.stringify(techStackArr),
+        JSON.stringify(featuresArr),
+        JSON.stringify(tiers),
+        JSON.stringify(media),
+        id,
+      ],
+    );
 
-    res.json({ success: true, message: "Updated successfully", project: result.rows[0] });
+    res.json({
+      success: true,
+      message: "Updated successfully",
+      project: result.rows[0],
+    });
   } catch (error) {
     console.error("Update error:", error);
     res.status(500).json({ error: "Update failed" });
@@ -238,17 +385,20 @@ router.put("/:id", adminAuth, upload.any(), async (req, res) => {
 router.delete("/:id", adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const projectResult = await pool.query('SELECT media FROM "Project" WHERE id = $1', [id]);
-    
+    const projectResult = await pool.query(
+      'SELECT media FROM "Project" WHERE id = $1',
+      [id],
+    );
+
     if (projectResult.rows.length > 0) {
       const media = projectResult.rows[0].media;
       // Delete images
-      media.images?.forEach(img => {
+      media.images?.forEach((img) => {
         const p = path.join(".", img);
         if (fs.existsSync(p)) fs.unlinkSync(p);
       });
       // Delete videos
-      media.videos?.forEach(vid => {
+      media.videos?.forEach((vid) => {
         const p = path.join(".", vid);
         if (fs.existsSync(p)) fs.unlinkSync(p);
       });

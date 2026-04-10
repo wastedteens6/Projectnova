@@ -38,12 +38,20 @@ router.post("/create-order", async (req, res) => {
   try {
     const { amount, projectIds, email, phone } = req.body;
 
+    console.log('📋 CREATE ORDER REQUEST:')
+    console.log('  - Amount (paise):', amount)
+    console.log('  - Amount (rupees):', amount / 100)
+    console.log('  - Projects:', projectIds)
+    console.log('  - Email:', email)
+    console.log('  - Phone:', phone)
+
     if (!amount || !projectIds || !email || !phone) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     if (USE_MOCK || !razorpay) {
       const mockOrderId = `mock_${Date.now()}`;
+      console.log('🎭 Mock payment mode - Order ID:', mockOrderId)
       return res.json({ success: true, orderId: mockOrderId, isMockPayment: true });
     }
 
@@ -53,8 +61,10 @@ router.post("/create-order", async (req, res) => {
       receipt: `receipt_${Date.now()}`,
       notes: { projectIds: JSON.stringify(projectIds), email, phone },
     });
+    console.log('✅ Order created - ID:', order.id)
     res.json({ success: true, orderId: order.id, isMockPayment: false });
   } catch (err) {
+    console.error('❌ Order creation failed:', err)
     res.status(500).json({ error: "Order failed", details: err.message });
   }
 });

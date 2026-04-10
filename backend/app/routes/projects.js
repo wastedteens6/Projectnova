@@ -2,39 +2,10 @@ import express from "express";
 
 const router = express.Router();
 
-// In-memory storage (will be replaced with database)
-let projects = [
-  {
-    id: "1",
-    slug: "mern-ecommerce",
-    title: "MERN E-commerce Platform",
-    description: "Complete e-commerce app with MERN stack",
-    category: "Full Stack",
-    techStack: ["MongoDB", "Express", "React", "Node.js"],
-    tier1Price: 399,
-    tier2Price: 999,
-    tier3Price: 1999,
-    tier4Price: 2999,
-    thumbnailUrl: "/projects/mern-ecommerce.jpg",
-    views: 1500,
-    isPublished: true,
-  },
-  {
-    id: "2",
-    slug: "django-blog",
-    title: "Django Blog Platform",
-    description: "Blogging platform with Django and PostgreSQL",
-    category: "Backend",
-    techStack: ["Django", "PostgreSQL", "HTML/CSS"],
-    tier1Price: 299,
-    tier2Price: 799,
-    tier3Price: 1499,
-    tier4Price: 2199,
-    thumbnailUrl: "/projects/django-blog.jpg",
-    views: 1200,
-    isPublished: true,
-  },
-];
+// In-memory storage (DEPRECATED - Use database instead)
+// All pricing is now stored in the PostgreSQL database in the Project.tiers JSONB field
+// Prices should NEVER be hardcoded here - fetch from database via /src/routes/projects.js
+let projects = [];
 
 // Get all projects
 router.get("/", (req, res) => {
@@ -45,6 +16,8 @@ router.get("/", (req, res) => {
 });
 
 // Create new project (Admin only)
+// NOTE: This endpoint is deprecated - use database endpoint instead
+// All tier pricing MUST come from the database tiers JSONB field
 router.post("/create", (req, res) => {
   try {
     const {
@@ -53,17 +26,13 @@ router.post("/create", (req, res) => {
       description,
       category,
       techStack,
-      tier1Price,
-      tier2Price,
-      tier3Price,
-      tier4Price,
     } = req.body;
 
-    // Validate required fields
-    if (!title || !slug || !description || !category || !tier1Price) {
+    // Validate required fields (NO hardcoded default prices)
+    if (!title || !slug || !description || !category) {
       return res.status(400).json({
         success: false,
-        error: "Missing required fields",
+        error: "Missing required fields. Use database endpoint for pricing.",
       });
     }
 
@@ -75,7 +44,7 @@ router.post("/create", (req, res) => {
       });
     }
 
-    // Create new project
+    // Create new project WITHOUT hardcoded prices
     const newProject = {
       id: String(Math.max(...projects.map((p) => parseInt(p.id) || 0), 0) + 1),
       slug,
@@ -83,10 +52,8 @@ router.post("/create", (req, res) => {
       description,
       category,
       techStack: Array.isArray(techStack) ? techStack : [techStack],
-      tier1Price: parseInt(tier1Price),
-      tier2Price: parseInt(tier2Price),
-      tier3Price: parseInt(tier3Price),
-      tier4Price: parseInt(tier4Price),
+      // NOTE: Prices come from database tiers only, never hardcoded
+      tiers: [], // Empty - must be set in database
       thumbnailUrl: "/projects/default.jpg",
       views: 0,
       isPublished: true,

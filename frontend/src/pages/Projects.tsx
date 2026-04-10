@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
-const TIER_PRICES = { tier1: 499, tier2: 999, tier3: 1999 }
-
 const getImageUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
@@ -67,6 +65,85 @@ export default function Projects() {
     setTimeout(() => setPurchaseAlert({ show: false, message: '' }), 3000)
   }
 
+  const handleAddToCart = (e: React.MouseEvent, project: any) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setPurchaseAlert({ show: true, message: 'Please login to add to cart!' })
+      setTimeout(() => window.location.href = '/auth/login', 2000)
+      return
+    }
+
+    // Add the first tier to cart
+    const tier = project.tiers?.[0]
+    if (!tier) {
+      setPurchaseAlert({ show: true, message: 'No pricing tiers available' })
+      return
+    }
+
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]')
+    cart.push({
+      id: project.id,
+      name: project.title,
+      tier: tier.name || 'Starter',
+      tierLevel: tier.level || 1, // Store level for matching
+      price: tier.price,
+      slug: project.slug,
+      driveLink: tier.drive_link || '#'
+    })
+    localStorage.setItem('cart', JSON.stringify(cart))
+    
+    setPurchaseAlert({ show: true, message: `✅ ${project.title} added to cart!` })
+    setTimeout(() => setPurchaseAlert({ show: false, message: '' }), 3000)
+  }
+
+  const handleBuyProject = (e: React.MouseEvent, project: any) => {
+    e.preventDefault()
+    e.stopPropagation()
+    window.location.href = `/projects/${project.slug}`
+  }
+
+  const handleUpgradePackage = (e: React.MouseEvent, project: any) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const currentTierData = purchasedProjects[project.id]
+    if (!currentTierData) return
+
+    // Find available tiers to upgrade to
+    const currentTierIndex = project.tiers?.findIndex((t: any) => t.name === currentTierData.tier) ?? -1
+    
+    if (currentTierIndex === -1 || currentTierIndex === (project.tiers?.length || 0) - 1) {
+      setPurchaseAlert({ show: true, message: 'Already at highest tier!' })
+      return
+    }
+
+    // Show upgrade options or navigate to upgrade modal/page
+    // For now, we'll create a simple upgrade modal showing available tiers
+    const upgradeTiers = project.tiers?.slice(currentTierIndex + 1) || []
+    
+    if (upgradeTiers.length === 0) {
+      setPurchaseAlert({ show: true, message: 'No higher tiers available' })
+      return
+    }
+
+    // Store upgrade context and navigate to upgrade page
+    const upgradeData = {
+      projectId: project.id,
+      projectSlug: project.slug,
+      projectTitle: project.title,
+      currentTier: currentTierData.tier,
+      currentTierLevel: currentTierIndex,
+      currentPrice: currentTierData.price,
+      availableTiers: upgradeTiers
+    }
+
+    localStorage.setItem('upgradeContext', JSON.stringify(upgradeData))
+    window.location.href = `/projects/${project.slug}?upgrade=true`
+  }
+
   const categories = ['All', 'AI', 'ML', 'Web Development', 'Cybersecurity']
 
   const filteredProjects = projects.filter(project => {
@@ -101,24 +178,29 @@ export default function Projects() {
         </div>
       )}
 
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+
+        {/* MARKETPLACE Header */}
+        <div className="mb-3">
+          <p className="text-sm font-bold tracking-wide text-red-500 uppercase">Marketplace</p>
+        </div>
 
         {/* Page header */}
-        <div className="mb-10">
-          <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 ${
+        <div className="mb-8">
+          <h1 className={`text-4xl sm:text-5xl font-extrabold tracking-tight mb-3 ${
             isLight ? 'text-slate-900' : 'text-white'
           }`}>Browse Projects</h1>
-          <p className={`text-base ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-            {projects.length}+ ready-made academic projects
+          <p className={`text-lg ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+            4+ ready-made academic projects — pick, purchase, and build.
           </p>
         </div>
 
         {/* Search + Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
-              isLight ? 'text-slate-400' : 'text-slate-600'
+        <div className="mb-12">
+          {/* Search input */}
+          <div className="relative flex-1 max-w-md mb-6">
+            <svg className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${
+              isLight ? 'text-slate-400' : 'text-slate-500'
             }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -127,7 +209,7 @@ export default function Projects() {
               placeholder="Search projects..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className={`w-full pl-9 pr-4 py-2 text-sm rounded-[10px] border focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+              className={`w-full pl-12 pr-4 py-3 text-base rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                 isLight
                   ? 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
                   : 'bg-white/5 border-white/10 text-white placeholder-slate-600'
@@ -136,17 +218,17 @@ export default function Projects() {
           </div>
 
           {/* Category pills */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-3 flex-wrap">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-[10px] text-sm font-medium border transition-all duration-150 ${
+                className={`px-4 py-2.5 rounded-full text-sm font-medium border transition-all duration-150 ${
                   selectedCategory === cat
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                     : isLight
                       ? 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                      : 'bg-white/5 text-slate-400 border-white/10 hover:border-white/20 hover:text-slate-200'
+                      : 'bg-white/5 text-slate-300 border-white/10 hover:border-white/20 hover:text-white'
                 }`}
               >
                 {cat}
@@ -155,115 +237,165 @@ export default function Projects() {
           </div>
         </div>
 
-        {/* Projects grid */}
+        {/* AVAILABLE PROJECTS Header */}
+        <div className="mb-8 flex items-center justify-between">
+          <p className={`text-sm font-bold tracking-wide uppercase ${
+            isLight ? 'text-slate-500' : 'text-slate-400'
+          }`}>Available Projects</p>
+          <p className={`text-sm ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+            {filteredProjects.length} results
+          </p>
+        </div>
+
+        {/* Projects grid - 2 columns */}
         {filteredProjects.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredProjects.map((project) => (
-              <a
-                key={project.id}
-                href={`/projects/${project.slug}`}
-                className={`group rounded-[14px] border overflow-hidden transition-all duration-200 hover:-translate-y-1 ${
-                  isLight
-                    ? 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200'
-                    : 'bg-white/[0.03] border-white/[0.06] hover:border-white/[0.12]'
-                }`}
-              >
-                {/* Thumbnail */}
-                <div className={`h-44 overflow-hidden ${
-                  isLight ? 'bg-slate-100' : 'bg-white/5'
-                }`}>
-                  {(project.media?.images?.length > 0 || project.images?.length > 0) ? (
-                    <img
-                      src={getImageUrl((project.media?.images || project.images)[0])}
-                      alt={project.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className={`w-full h-full flex items-center justify-center text-4xl ${
-                      isLight ? 'bg-slate-100' : 'bg-white/[0.03]'
-                    }`}>
-                      📦
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {(project.tech_stack || []).slice(0, 3).map((tech: string, i: number) => (
-                      <span
-                        key={i}
-                        className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                          isLight
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'bg-indigo-500/10 text-indigo-400'
-                        }`}
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                    {(project.tech_stack || []).length > 3 && (
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${
-                        isLight ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-500'
-                      }`}>
-                        +{(project.tech_stack || []).length - 3}
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className={`font-semibold text-base mb-1.5 leading-snug group-hover:text-indigo-600 transition-colors ${
-                    isLight ? 'text-slate-900' : 'text-white group-hover:text-indigo-400'
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredProjects.map((project, idx) => {
+              // Generate gradient colors for each card based on index
+              const gradients = [
+                'from-indigo-900/60 via-indigo-700/40 to-slate-900/60',
+                'from-emerald-900/60 via-teal-700/40 to-slate-900/60',
+                'from-rose-900/60 via-red-800/40 to-slate-900/60',
+                'from-blue-900/60 via-cyan-700/40 to-slate-900/60',
+                'from-purple-900/60 via-violet-700/40 to-slate-900/60',
+                'from-orange-900/60 via-amber-700/40 to-slate-900/60'
+              ]
+              const gradient = gradients[idx % gradients.length]
+              
+              return (
+                <div
+                  key={project.id}
+                  className={`group rounded-2xl border overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                    isLight
+                      ? 'bg-white border-slate-100 hover:border-slate-200'
+                      : 'bg-slate-900/40 border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  {/* Thumbnail with gradient background and category badges overlay */}
+                  <div className={`relative h-56 overflow-hidden group ${
+                    isLight ? 'bg-gradient-to-br from-slate-100 to-slate-200' : `bg-gradient-to-br ${gradient}`
                   }`}>
-                    {project.title}
-                  </h3>
+                    {/* Background image or gradient placeholder */}
+                    {(project.media?.images?.length > 0 || project.images?.length > 0) ? (
+                      <img
+                        src={getImageUrl((project.media?.images || project.images)[0])}
+                        alt={project.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center opacity-40">
+                        <svg className="w-20 h-20 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </svg>
+                      </div>
+                    )}
 
-                  <p className={`text-sm line-clamp-2 mb-4 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
-                    {project.description}
-                  </p>
-
-                  {/* Price + CTA row */}
-                  <div className="flex items-center justify-between pt-3 border-t ${isLight ? 'border-slate-100' : 'border-white/[0.06]'}">
-                    <div>
-                      <span className={`text-xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        ₹{project.tiers?.[0]?.price || TIER_PRICES.tier1}
-                      </span>
-                      <span className={`text-xs ml-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>from</span>
+                    {/* Category badges positioned at bottom left of image */}
+                    <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
+                      {(project.tech_stack || []).slice(0, 2).map((tech: string, i: number) => (
+                        <span
+                          key={i}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-md backdrop-blur-sm ${
+                            isLight
+                              ? 'bg-white/90 text-slate-700'
+                              : 'bg-white/20 text-white border border-white/30'
+                          }`}
+                        >
+                          {tech}
+                        </span>
+                      ))}
                     </div>
 
-                    {isProjectPurchased(project.id) ? (
-                      <button
-                        onClick={(e) => handleDownloadReceipt(e, project)}
-                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                          isLight
-                            ? 'bg-green-50 text-green-700 border border-green-100 hover:bg-green-100'
-                            : 'bg-green-500/10 text-green-400 border border-green-500/20'
-                        }`}
-                      >
-                        Download Receipt
-                      </button>
-                    ) : (
-                      <span className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    {/* Cart button at top right */}
+                    <button
+                      onClick={(e) => handleAddToCart(e, project)}
+                      className={`absolute top-4 right-4 p-2.5 rounded-full backdrop-blur-sm transition-all duration-200 hover:scale-110 ${
                         isLight
-                          ? 'bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600'
-                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-500/20'
-                      }`}>
-                        View tiers →
-                      </span>
+                          ? 'bg-white/90 text-slate-700 hover:bg-white'
+                          : 'bg-white/20 text-white border border-white/30 hover:bg-white/30'
+                      }` }
+                      title="Add to cart"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m10 0h2m-2 0a2 2 0 110-4 2 2 0 010 4zm-8 0a2 2 0 110-4 2 2 0 010 4z" />
+                      </svg>
+                    </button>
+
+                    {/* Purchased badge if applicable */}
+                    {isProjectPurchased(project.id) && (
+                      <div className="absolute top-4 left-4 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-500/50">
+                        <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                        <span className="text-xs font-semibold text-green-300">Purchased</span>
+                      </div>
                     )}
                   </div>
+
+                  {/* Card Content */}
+                  <div className={`p-6 ${isLight ? 'bg-white' : 'bg-slate-900'}`}>
+                    {/* Project Title */}
+                    <h3 className={`text-xl font-bold mb-1 leading-snug group-hover:text-indigo-600 transition-colors ${
+                      isLight ? 'text-slate-900' : 'text-white'
+                    }`}>
+                      {project.title}
+                    </h3>
+
+                    {/* Creator name - using category or placeholder */}
+                    <p className={`text-sm mb-5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {project.category || 'Academic Project'}
+                    </p>
+
+                    {/* CTA buttons row - full width for single button */}
+                    <div className="flex gap-3 pt-4 border-t ${isLight ? 'border-slate-100' : 'border-white/10'}">
+                      {isProjectPurchased(project.id) ? (
+                        <>
+                          <button
+                            onClick={(e) => handleDownloadReceipt(e, project)}
+                            className={`flex-1 text-sm font-semibold px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                              isLight
+                                ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                : 'bg-white/10 text-slate-300 border-white/20 hover:bg-white/20'
+                            }`}
+                          >
+                            Download Receipt
+                          </button>
+                          <button
+                            onClick={(e) => handleUpgradePackage(e, project)}
+                            className={`flex-1 text-sm font-semibold px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                              isLight
+                                ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30'
+                            }`}
+                            title="Upgrade to a higher tier"
+                          >
+                            ⬆ Upgrade
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={(e) => handleBuyProject(e, project)}
+                          className={`flex-1 font-semibold py-2.5 rounded-lg border transition-all duration-200 ${
+                            isLight
+                              ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                              : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                          }`}
+                        >
+                          Buy Project
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </a>
-            ))}
+              )
+            })}
           </div>
         ) : (
-          <div className={`text-center py-20 rounded-[14px] border ${
-            isLight ? 'border-slate-100 bg-slate-50' : 'border-white/[0.06] bg-white/[0.02]'
+          <div className={`text-center py-20 rounded-2xl border-2 border-dashed ${
+            isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/5'
           }`}>
-            <div className="text-4xl mb-3">🔍</div>
-            <p className={`font-semibold ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>No projects found</p>
-            <p className={`text-sm mt-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>
-              {searchQuery ? `No results for "${searchQuery}"` : 'No projects in this category.'}
+            <div className="text-5xl mb-4">🔍</div>
+            <p className={`text-lg font-semibold ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>No projects found</p>
+            <p className={`text-sm mt-2 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+              {searchQuery ? `No results for "${searchQuery}"` : 'Try adjusting your search or category filters.'}
             </p>
           </div>
         )}

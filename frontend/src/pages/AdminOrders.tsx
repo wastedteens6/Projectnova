@@ -1,10 +1,41 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
 
 export default function AdminOrders() {
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('userRole')
     window.location.href = '/auth/login'
+  }
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const ordersRes = await axios.get('http://localhost:5000/api/orders', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        })
+        setOrders(ordersRes.data.data || [])
+      } catch (err) {
+        console.error('Error fetching orders:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [])
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   return (
@@ -31,36 +62,36 @@ export default function AdminOrders() {
                 <th className="text-left py-4 px-6 text-slate-900 font-semibold">Order ID</th>
                 <th className="text-left py-4 px-6 text-slate-900 font-semibold">Customer</th>
                 <th className="text-left py-4 px-6 text-slate-900 font-semibold">Project</th>
+                <th className="text-left py-4 px-6 text-slate-900 font-semibold">Tier</th>
                 <th className="text-left py-4 px-6 text-slate-900 font-semibold">Amount</th>
-                <th className="text-left py-4 px-6 text-slate-900 font-semibold">Status</th>
                 <th className="text-left py-4 px-6 text-slate-900 font-semibold">Date</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="py-4 px-6 text-slate-900">#ORD001</td>
-                <td className="py-4 px-6 text-slate-900">John Doe</td>
-                <td className="py-4 px-6 text-slate-600">MERN E-Commerce</td>
-                <td className="py-4 px-6 text-slate-600">₹1,999</td>
-                <td className="py-4 px-6">
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
-                    Completed
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-slate-600">2026-04-01</td>
-              </tr>
-              <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="py-4 px-6 text-slate-900">#ORD002</td>
-                <td className="py-4 px-6 text-slate-900">Jane Smith</td>
-                <td className="py-4 px-6 text-slate-600">Django Blog</td>
-                <td className="py-4 px-6 text-slate-600">₹999</td>
-                <td className="py-4 px-6">
-                  <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-semibold">
-                    Pending
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-slate-600">2026-04-05</td>
-              </tr>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="py-8 px-6 text-center text-slate-500">
+                    Loading orders...
+                  </td>
+                </tr>
+              ) : orders.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="py-8 px-6 text-center text-slate-500">
+                    No orders yet. Data will appear here when orders are placed.
+                  </td>
+                </tr>
+              ) : (
+                orders.map((order: any, idx: number) => (
+                  <tr key={order.id} className="border-b border-slate-200 hover:bg-slate-50 transition">
+                    <td className="py-4 px-6 text-slate-900 font-mono text-sm">{idx + 1}</td>
+                    <td className="py-4 px-6 text-slate-900">{order.name || order.email}</td>
+                    <td className="py-4 px-6 text-slate-900">{order.project_title || 'N/A'}</td>
+                    <td className="py-4 px-6 text-slate-900">{order.tier_name} (Lvl {order.tier_level})</td>
+                    <td className="py-4 px-6 text-slate-900 font-semibold text-green-600">₹{order.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                    <td className="py-4 px-6 text-slate-600 text-sm">{formatDate(order.created_at)}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -8,7 +8,6 @@ export default function Footer() {
   const links = {
     Platform: [
       { label: 'Browse Projects', href: '/projects' },
-      { label: 'Pricing', href: '/pricing' },
       { label: 'Custom Projects', href: '/projects/custom' },
       { label: 'Documentation', href: '/docs' },
     ],

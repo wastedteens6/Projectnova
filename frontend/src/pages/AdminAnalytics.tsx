@@ -1,11 +1,63 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
 
 export default function AdminAnalytics() {
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [avgOrderValue, setAvgOrderValue] = useState(0)
+  const [topProjects, setTopProjects] = useState<any[]>([])
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('userRole')
     window.location.href = '/auth/login'
   }
+
+  // Fetch analytics data
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        // Fetch orders
+        const ordersRes = await axios.get('http://localhost:5000/api/orders', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        })
+        const orders = ordersRes.data.data || []
+        setTotalOrders(orders.length)
+
+        // Calculate total revenue from orders
+        const revenue = orders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
+        setTotalRevenue(revenue)
+
+        // Calculate average order value
+        const avg = orders.length > 0 ? revenue / orders.length : 0
+        setAvgOrderValue(avg)
+
+        // Get top projects by purchase count
+        const projectStats: { [key: string]: any } = {}
+        orders.forEach((order: any) => {
+          const projectTitle = order.project_title || 'Unknown Project'
+          if (!projectStats[order.project_id]) {
+            projectStats[order.project_id] = {
+              title: projectTitle,
+              count: 0,
+              revenue: 0
+            }
+          }
+          projectStats[order.project_id].count += 1
+          projectStats[order.project_id].revenue += order.amount || 0
+        })
+
+        const topProjectsList = Object.values(projectStats)
+          .sort((a: any, b: any) => b.count - a.count)
+          .slice(0, 5)
+        setTopProjects(topProjectsList)
+      } catch (err) {
+        console.error('Error fetching analytics data:', err)
+      }
+    }
+
+    fetchAnalyticsData()
+  }, [])
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -27,24 +79,24 @@ export default function AdminAnalytics() {
         {/* Analytics Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-12">
           <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-purple-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Total Views</h3>
-            <p className="text-4xl font-bold text-purple-600">15.2K</p>
-            <p className="text-slate-500 text-sm mt-2">↑ 12% from last month</p>
+            <h3 className="text-slate-600 text-sm font-semibold mb-2">Total Orders</h3>
+            <p className="text-4xl font-bold text-purple-600">{totalOrders}</p>
+            <p className="text-slate-500 text-sm mt-2">{totalOrders > 0 ? 'Orders placed' : 'No data yet'}</p>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-blue-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Conversion Rate</h3>
-            <p className="text-4xl font-bold text-blue-600">3.2%</p>
-            <p className="text-slate-500 text-sm mt-2">↑ 0.5% from last month</p>
+            <h3 className="text-slate-600 text-sm font-semibold mb-2">Total Revenue</h3>
+            <p className="text-4xl font-bold text-blue-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className="text-slate-500 text-sm mt-2">{totalRevenue > 0 ? 'Revenue generated' : 'No data yet'}</p>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-green-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Total Revenue</h3>
-            <p className="text-4xl font-bold text-green-600">₹5.2L</p>
-            <p className="text-slate-500 text-sm mt-2">↑ 23% from last month</p>
+            <h3 className="text-slate-600 text-sm font-semibold mb-2">Avg Order Value</h3>
+            <p className="text-4xl font-bold text-green-600">₹{avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className="text-slate-500 text-sm mt-2">{avgOrderValue > 0 ? 'Per order' : 'No data yet'}</p>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-yellow-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Avg Order Value</h3>
-            <p className="text-4xl font-bold text-yellow-600">₹1,520</p>
-            <p className="text-slate-500 text-sm mt-2">↑ 8% from last month</p>
+            <h3 className="text-slate-600 text-sm font-semibold mb-2">Order Rate</h3>
+            <p className="text-4xl font-bold text-yellow-600">{totalOrders}</p>
+            <p className="text-slate-500 text-sm mt-2">Total transactions</p>
           </div>
         </div>
 
@@ -52,67 +104,46 @@ export default function AdminAnalytics() {
           {/* Top Projects */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-xl font-bold text-slate-900 mb-4">Top Projects</h3>
-            <ul className="space-y-3">
-              <li className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-slate-700">MERN E-Commerce</span>
-                <span className="text-slate-600 font-semibold">234 sales</span>
-              </li>
-              <li className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-slate-700">Django Blog</span>
-                <span className="text-slate-600 font-semibold">156 sales</span>
-              </li>
-              <li className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-slate-700">React Dashboard</span>
-                <span className="text-slate-600 font-semibold">123 sales</span>
-              </li>
-              <li className="flex justify-between items-center">
-                <span className="text-slate-700">Vue.js App</span>
-                <span className="text-slate-600 font-semibold">98 sales</span>
-              </li>
-            </ul>
+            {topProjects.length > 0 ? (
+              <div className="space-y-4">
+                {topProjects.map((project: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center pb-3 border-b border-slate-200 last:border-b-0">
+                    <div>
+                      <p className="font-semibold text-slate-900">{idx + 1}. {project.title}</p>
+                      <p className="text-sm text-slate-500">{project.count} {project.count === 1 ? 'purchase' : 'purchases'}</p>
+                    </div>
+                    <p className="font-bold text-green-600">₹{project.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <p>No project sales data yet. Projects sold will appear here.</p>
+              </div>
+            )}
           </div>
 
           {/* Traffic Sources */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">Traffic Sources</h3>
-            <ul className="space-y-3">
-              <li className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-slate-700">Direct</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-2 bg-purple-200 rounded-full">
-                    <div className="w-16 h-2 bg-purple-600 rounded-full"></div>
-                  </div>
-                  <span className="text-slate-600 font-semibold">45%</span>
-                </div>
-              </li>
-              <li className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-slate-700">Google</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-2 bg-blue-200 rounded-full">
-                    <div className="w-20 h-2 bg-blue-600 rounded-full"></div>
-                  </div>
-                  <span className="text-slate-600 font-semibold">32%</span>
-                </div>
-              </li>
-              <li className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-slate-700">Social</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-2 bg-green-200 rounded-full">
-                    <div className="w-12 h-2 bg-green-600 rounded-full"></div>
-                  </div>
-                  <span className="text-slate-600 font-semibold">15%</span>
-                </div>
-              </li>
-              <li className="flex justify-between items-center">
-                <span className="text-slate-700">Other</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-2 bg-yellow-200 rounded-full">
-                    <div className="w-6 h-2 bg-yellow-600 rounded-full"></div>
-                  </div>
-                  <span className="text-slate-600 font-semibold">8%</span>
-                </div>
-              </li>
-            </ul>
+            <h3 className="text-xl font-bold text-slate-900 mb-4">Order Statistics</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                <p className="text-slate-600">Total Orders</p>
+                <p className="font-bold text-purple-600">{totalOrders}</p>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                <p className="text-slate-600">Total Revenue</p>
+                <p className="font-bold text-blue-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                <p className="text-slate-600">Avg Per Order</p>
+                <p className="font-bold text-green-600">₹{avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-slate-600">Best Period</p>
+                <p className="font-bold text-yellow-600">This Month</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

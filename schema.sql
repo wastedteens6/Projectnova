@@ -72,6 +72,7 @@ CREATE TABLE "Project" (
   description  TEXT NOT NULL,
   category     VARCHAR(100),
   is_published BOOLEAN   DEFAULT true,
+  is_featured  BOOLEAN   DEFAULT false,         -- for featured/trending section
   tech_stack   JSONB     DEFAULT '[]',          -- e.g. ["Python", "React"]
   features     JSONB     DEFAULT '[]',          -- e.g. ["Real-time tracking", "Auth"]
   tiers        JSONB     DEFAULT '[]',

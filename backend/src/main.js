@@ -3,10 +3,13 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   testDatabaseConnection,
   closeDatabaseConnection,
 } from "./config/database.js";
+import { runMigrations } from "./config/migrations.js";
 
 // Load environment variables from .env.development in development
 const envFile =
@@ -21,9 +24,23 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(helmet());
-app.use(cors());
+// Middleware - Order matters!
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow CORS for images
+  }),
+);
+
+// CORS configuration
+app.use(
+  cors({
+    origin: true, // Allow all origins in development
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -31,10 +48,16 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
 });
-app.use(limiter);
 
-// Serve uploaded files
-app.use("/uploads", express.static("uploads"));
+// Apply rate limiter to API routes only, NOT to static files
+app.use("/api", limiter);
+
+// Serve uploaded files - BEFORE applying heavy middleware
+// Use absolute path from backend root
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsPath = path.join(__dirname, "../uploads");
+console.log("📁 Serving static files from:", uploadsPath);
+app.use("/uploads", express.static(uploadsPath));
 
 // Routes
 import authRoutes from "./routes/auth.js";
@@ -101,6 +124,14 @@ const server = app.listen(PORT, async () => {
     console.warn(
       "⚠️ Warning: Database connection failed. Please run: npm run db:init",
     );
+  } else {
+    // Run database migrations
+    try {
+      await runMigrations();
+    } catch (error) {
+      console.error("❌ Failed to run migrations:", error);
+      process.exit(1);
+    }
   }
 });
 

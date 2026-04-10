@@ -9,7 +9,9 @@ interface CartItem {
   price: number
   slug: string
   tier?: string
+  tierLevel?: number
   driveLink?: string
+  isUpgrade?: boolean
 }
 
 export default function Checkout() {
@@ -21,6 +23,7 @@ export default function Checkout() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [pricesFetching, setPricesFetching] = useState(true)
   const [selectedPayment, setSelectedPayment] = useState('razorpay')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -28,16 +31,99 @@ export default function Checkout() {
   const [errorAlert, setErrorAlert] = useState({ show: false, message: '' })
   const [scriptLoaded, setScriptLoaded] = useState(false)
 
-  // Get cart from localStorage
+  // Get cart from localStorage and fetch fresh prices from database
   useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]')
-    if (cart.length === 0) {
-      setErrorAlert({ show: true, message: 'Your cart is empty!' })
-      setTimeout(() => navigate('/projects'), 2000)
-    } else {
-      setCartItems(cart)
+    const fetchCartWithPrices = async () => {
+      try {
+        setPricesFetching(true)
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]')
+        const itemIdParam = searchParams.get('itemId')
+        
+        console.log('🛒 Cart from localStorage:', cart)
+        console.log('📦 Checkout mode - itemId param:', itemIdParam)
+        
+        if (cart.length === 0) {
+          setErrorAlert({ show: true, message: 'Your cart is empty!' })
+          setTimeout(() => navigate('/projects'), 2000)
+          setPricesFetching(false)
+          return
+        }
+
+        // Filter cart to only include the specific item if itemId is provided
+        const itemsToCheckout = itemIdParam 
+          ? cart.filter((item: CartItem) => item.id === itemIdParam)
+          : cart
+
+        if (itemsToCheckout.length === 0) {
+          setErrorAlert({ show: true, message: 'Item not found in cart!' })
+          setTimeout(() => navigate('/dashboard'), 2000)
+          setPricesFetching(false)
+          return
+        }
+
+        console.log('🛍️ Items to checkout:', itemsToCheckout)
+
+        // Fetch fresh prices from database for each cart item
+        const updatedCart = await Promise.all(
+          itemsToCheckout.map(async (item: CartItem) => {
+            try {
+              console.log(`🔍 Fetching prices for: ${item.slug} (tier="${item.tier}", tierLevel=${item.tierLevel})`)
+              const res = await axios.get(`http://localhost:5000/api/projects/${item.slug}`)
+              
+              if (res.data?.success && res.data?.data?.tiers) {
+                const projectTiers = res.data.data.tiers
+                console.log(`📊 Available tiers for ${item.name}:`, projectTiers)
+                
+                // Try to match tier by level first (most reliable)
+                let matchingTier = null
+                if (item.tierLevel !== undefined && item.tierLevel !== null) {
+                  matchingTier = projectTiers.find((t: any) => t.level === item.tierLevel)
+                  console.log(`  - Matched by level ${item.tierLevel}:`, matchingTier)
+                }
+                
+                // If no match by level, try by name
+                if (!matchingTier && item.tier) {
+                  matchingTier = projectTiers.find((t: any) => t.name === item.tier)
+                  console.log(`  - Matched by name "${item.tier}":`, matchingTier)
+                }
+                
+                // If still no match, default to first tier
+                if (!matchingTier) {
+                  matchingTier = projectTiers[0]
+                  console.log(`  - Defaulted to first tier:`, matchingTier)
+                }
+
+                const finalPrice = matchingTier?.price || item.price
+                console.log(`✅ ${item.name}: Using price ₹${finalPrice}`)
+                
+                return {
+                  ...item,
+                  price: finalPrice,
+                  tier: matchingTier?.name || item.tier,
+                  tierLevel: matchingTier?.level
+                }
+              }
+              console.log(`⚠️ No tiers found for ${item.slug}, using stored price: ₹${item.price}`)
+              return item
+            } catch (err) {
+              console.warn(`❌ Failed to fetch fresh price for ${item.slug}:`, err)
+              return item
+            }
+          })
+        )
+
+        console.log('🎯 Updated cart with fresh prices:', updatedCart)
+        setCartItems(updatedCart)
+      } catch (err) {
+        console.error('Error fetching cart:', err)
+        setErrorAlert({ show: true, message: 'Error loading cart' })
+      } finally {
+        setPricesFetching(false)
+      }
     }
-  }, [navigate])
+
+    fetchCartWithPrices()
+  }, [navigate, searchParams])
 
   // Load Razorpay script
   useEffect(() => {
@@ -83,6 +169,12 @@ export default function Checkout() {
     }
 
     try {
+      console.log('💳 Payment initiated:')
+      console.log('  - Total Price: ₹' + totalPrice)
+      console.log('  - Cart Items:', cartItems)
+      console.log('  - Email:', email)
+      console.log('  - Phone:', phone)
+      
       // Create payment order
       const res = await axios.post('http://localhost:5000/api/checkout/create-order', {
         amount: totalPrice * 100, // Convert to paise
@@ -102,10 +194,10 @@ export default function Checkout() {
           existingProjects.push({
             id: item.id,
             name: item.name,
-            tier: item.tier || 'Level 1',
+            tier: 'Level 1',
             price: `₹${item.price}`,
             date: new Date().toLocaleDateString(),
-            downloadLink: item.driveLink || '#'
+            downloadLink: `/projects/${item.slug}`
           })
         })
         localStorage.setItem('savedProjects', JSON.stringify(existingProjects))
@@ -135,10 +227,10 @@ export default function Checkout() {
               existingProjects.push({
                 id: item.id,
                 name: item.name,
-                tier: item.tier || 'Level 1',
+                tier: 'Level 1',
                 price: `₹${item.price}`,
                 date: new Date().toLocaleDateString(),
-                downloadLink: item.driveLink || '#'
+                downloadLink: `/projects/${item.slug}`
               })
             })
             localStorage.setItem('savedProjects', JSON.stringify(existingProjects))
@@ -227,6 +319,17 @@ export default function Checkout() {
               <p className={`transition-colors duration-300 ${
                 isLight ? 'text-slate-600' : 'text-slate-400'
               }`}>No items in cart</p>
+            ) : pricesFetching ? (
+              <div className="flex items-center justify-center py-8">
+                <div className={`flex flex-col items-center gap-3 ${isLight ? '' : ''}`}>
+                  <div className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${
+                    isLight ? 'border-purple-600' : 'border-purple-400'
+                  }`} />
+                  <span className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                    Fetching latest prices from database...
+                  </span>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4 mb-6">
                 {cartItems.map((item, i) => (
@@ -347,14 +450,14 @@ export default function Checkout() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || pricesFetching}
                   className={`w-full py-3 rounded-lg font-bold transition transform hover:scale-105 ${
                     isLight
                       ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:shadow-lg disabled:opacity-50'
                       : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:shadow-lg hover:shadow-purple-500/50 disabled:opacity-50'
                   }`}
                 >
-                  {loading ? 'Processing...' : `Pay ₹${totalPrice}`}
+                  {pricesFetching ? 'Loading prices...' : loading ? 'Processing...' : `Pay ₹${totalPrice}`}
                 </button>
               </div>
             </form>

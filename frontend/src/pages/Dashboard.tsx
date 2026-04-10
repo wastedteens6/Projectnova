@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { useNavigate } from 'react-router-dom'
 
 export default function Dashboard() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const navigate = useNavigate()
 
   const [userName, setUserName] = useState('User')
   const [savedProjects, setSavedProjects] = useState<any[]>([])
@@ -42,6 +44,16 @@ export default function Dashboard() {
     const updatedCart = cartItems.filter(item => item.id !== id)
     setCartItems(updatedCart)
     localStorage.setItem('cart', JSON.stringify(updatedCart))
+  }
+
+  const handleBuyNow = (itemId: string) => {
+    // Navigate to checkout with itemId parameter to checkout only this item
+    navigate(`/checkout?itemId=${itemId}`)
+  }
+
+  const handleCheckoutAll = () => {
+    // Navigate to checkout without itemId to checkout all items
+    navigate('/checkout')
   }
 
   // Calculate total spent based on saved projects
@@ -110,9 +122,9 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-6">
             <h2 className={`text-2xl font-bold transition-colors duration-300 ${isLight ? 'text-purple-600' : 'text-cyan-400'}`}>Your Cart</h2>
             {cartItems.length > 0 && (
-              <a href="/checkout" className="px-6 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105">
-                Proceed to Checkout
-              </a>
+              <button onClick={handleCheckoutAll} className="px-6 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105">
+                🛒 Checkout All ({cartItems.length})
+              </button>
             )}
           </div>
           
@@ -126,31 +138,72 @@ export default function Dashboard() {
                 <div key={i} className={`relative p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   isLight
                     ? 'bg-white border-slate-200 hover:border-purple-300 hover:shadow-purple-200/50'
-                    : 'bg-slate-800/50 border-slate-700 hover:border-cyan-500/50 hover:shadow-cyan-900/50'
+                    : item.isUpgrade
+                      ? 'bg-slate-800/50 border-amber-700/50 hover:border-amber-500/50 hover:shadow-amber-900/50'
+                      : 'bg-slate-800/50 border-slate-700 hover:border-cyan-500/50 hover:shadow-cyan-900/50'
                 }`}>
                   <div className="absolute top-4 right-4">
-                    {item.isUpgrade && <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-orange-100 text-orange-700">UPGRADE</span>}
+                    {item.isUpgrade && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded ${
+                      isLight
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
+                    }`}>⬆ Upgrade</span>}
                   </div>
                   
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-                    isLight ? 'bg-purple-100' : 'bg-slate-900'
-                  }`}>🛍️</div>
+                    isLight ? 'bg-purple-100' : item.isUpgrade ? 'bg-amber-900/30' : 'bg-slate-900'
+                  }`}>{item.isUpgrade ? '⬆' : '🛍️'}</div>
                   
                   <h3 className={`text-lg font-black mb-1 line-clamp-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h3>
-                  <p className={`text-sm font-semibold mb-4 ${isLight ? 'text-purple-600' : 'text-cyan-400'}`}>{item.tier}</p>
+                  <p className={`text-sm font-semibold mb-4 ${
+                    item.isUpgrade
+                      ? isLight ? 'text-amber-600' : 'text-amber-400'
+                      : isLight ? 'text-purple-600' : 'text-cyan-400'
+                  }`}>
+                    {item.isUpgrade 
+                      ? `Upgrade: ${item.upgradedFrom} → ${item.tier}`
+                      : item.tier
+                    }
+                  </p>
+                  
+                  {item.isUpgrade && (
+                    <div className={`mb-4 p-3 rounded-lg text-xs ${
+                      isLight
+                        ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                        : 'bg-amber-900/20 border border-amber-700/50 text-amber-300'
+                    }`}>
+                      <p>Already paid: ₹{item.upgradedFromPrice}</p>
+                      <p className="font-bold mt-1">Pay now: ₹{item.price}</p>
+                    </div>
+                  )}
                   
                   <div className={`flex items-end justify-between pt-4 border-t ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
                     <div>
-                      <p className={`text-xs uppercase tracking-wider font-bold mb-1 ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>Price</p>
-                      <p className={`text-xl font-black ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>₹{item.price}</p>
+                      <p className={`text-xs uppercase tracking-wider font-bold mb-1 ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {item.isUpgrade ? 'Upgrade Cost' : 'Price'}
+                      </p>
+                      <p className={`text-xl font-black ${
+                        item.isUpgrade
+                          ? isLight ? 'text-amber-600' : 'text-amber-400'
+                          : isLight ? 'text-slate-800' : 'text-slate-200'
+                      }`}>₹{item.price}</p>
                     </div>
-                    <button
-                      onClick={() => handleRemoveFromCart(item.id)}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:scale-105 transition"
-                      title="Remove from cart"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleBuyNow(item.id)}
+                        className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:bg-green-600 hover:scale-105 transition font-semibold text-sm flex items-center gap-1"
+                        title="Buy this item now"
+                      >
+                        <span>💳</span> Buy Now
+                      </button>
+                      <button
+                        onClick={() => handleRemoveFromCart(item.id)}
+                        className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:scale-105 transition"
+                        title="Remove from cart"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
