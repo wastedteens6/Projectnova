@@ -221,12 +221,10 @@ router.put("/:id/toggle-featured", adminAuth, async (req, res) => {
       });
     }
 
-    res
-      .status(500)
-      .json({
-        error: "Failed to toggle featured status",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Failed to toggle featured status",
+      details: error.message,
+    });
   }
 });
 
@@ -408,6 +406,59 @@ router.delete("/:id", adminAuth, async (req, res) => {
     res.json({ success: true, message: "Deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+/**
+ * @route GET /api/admin/purchases
+ * @description Get all purchases with user details
+ */
+router.get("/purchases", adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        t.id as transaction_id,
+        t.user_id,
+        t.items->>'projectId' as project_id,
+        t.items->>'tier' as tier_level,
+        t.amount_in_paise as price_in_paise,
+        t.payment_info->>'orderId' as order_id,
+        t.created_at,
+        p.title as project_title,
+        p.slug,
+        p.tiers,
+        u.email,
+        u.name
+      FROM "Transaction" t
+      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
+      LEFT JOIN "User" u ON t.user_id = u.id
+      WHERE t.type = 'purchase' AND t.status = 'completed'
+      ORDER BY t.created_at DESC
+    `);
+
+    const data = result.rows.map((row) => {
+      const tierLevel = parseInt(row.tier_level);
+      const tierInfo = row.tiers?.find((t) => t.level === tierLevel);
+      return {
+        transactionId: row.transaction_id,
+        userId: row.user_id,
+        userName: row.name || "Unknown",
+        userEmail: row.email || "Unknown",
+        projectId: row.project_id,
+        projectTitle: row.project_title || "Deleted Project",
+        slug: row.slug,
+        tier: tierInfo?.name || `Tier ${tierLevel}`,
+        price: row.price_in_paise / 100,
+        orderId: row.order_id,
+        purchaseDate: new Date(row.created_at).toLocaleDateString(),
+        purchasedAt: row.created_at,
+      };
+    });
+
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    console.error("Error fetching purchases:", error);
+    res.status(500).json({ error: "Failed to fetch purchases" });
   }
 });
 

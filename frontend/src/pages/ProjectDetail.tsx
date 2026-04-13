@@ -47,6 +47,29 @@ export default function ProjectDetail() {
   const [isUpgrade, setIsUpgrade] = useState(false)
   const [upgradeContext, setUpgradeContext] = useState<any>(null)
   const [upgradeDifference, setUpgradeDifference] = useState(0)
+  const [upgradePriceLoading, setUpgradePriceLoading] = useState(false)
+
+  // Fetch upgrade price from SERVER — never calculate on frontend
+  const fetchUpgradePrice = async (context: any, targetTierLevel: number, tiers: Tier[]) => {
+    const token = localStorage.getItem('token')
+    if (!token || !context?.projectId) return
+    try {
+      setUpgradePriceLoading(true)
+      const res = await fetch('http://localhost:5000/api/purchases/upgrade-tier/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ project_id: String(context.projectId), target_tier_level: targetTierLevel }),
+      })
+      const data = await res.json()
+      if (res.ok && data.upgrade_price !== undefined) {
+        setUpgradeDifference(data.upgrade_price)
+      }
+    } catch (err) {
+      console.error('Failed to fetch upgrade price:', err)
+    } finally {
+      setUpgradePriceLoading(false)
+    }
+  }
 
   useEffect(() => {
     // Check if this is an upgrade flow
@@ -69,21 +92,24 @@ export default function ProjectDetail() {
           const projectData = res.data.data
           setProject(projectData)
           if (projectData.tiers && projectData.tiers.length > 0) {
-            // If upgrading, select the first available upgrade tier
+            // CRITICAL: Sort tiers by level to ensure reliable upgrade logic
+            projectData.tiers.sort((a: Tier, b: Tier) => Number(a.level) - Number(b.level))
+            
             if (upgradeParam === 'true') {
               const saved = localStorage.getItem('upgradeContext')
               if (saved) {
                 const context = JSON.parse(saved)
-                const upgradeableIndex = context.currentTierLevel + 1
-                if (projectData.tiers[upgradeableIndex]) {
-                  setSelectedTier(projectData.tiers[upgradeableIndex].level)
-                  // Calculate difference
-                  const difference = projectData.tiers[upgradeableIndex].price - context.currentPrice
-                  setUpgradeDifference(difference > 0 ? difference : 0)
+                // Find the next tier strictly higher than current
+                const nextTier = projectData.tiers.find(
+                  (t: Tier) => Number(t.level) > Number(context.currentTierLevel || 0)
+                )
+                if (nextTier) {
+                  setSelectedTier(Number(nextTier.level))
+                  await fetchUpgradePrice(context, Number(nextTier.level), projectData.tiers)
                 }
               }
             } else {
-              setSelectedTier(projectData.tiers[0].level)
+              setSelectedTier(Number(projectData.tiers[0].level))
             }
           }
         } else {
@@ -344,10 +370,13 @@ export default function ProjectDetail() {
               {/* Pricing Section */}
               <div className="space-y-4 border-t border-b py-6 mb-6">
                 {project.tiers?.map((tier, i) => {
-                  // If upgrading, disable tiers at or below current tier
-                  const isCurrentTierOrLower = isUpgrade && upgradeContext && i <= upgradeContext.currentTierLevel
+                  // BUG FIX: compare tier's LEVEL VALUE (not array index i) against currentTierLevel
+                  // Previously used `i <= currentTierLevel` which is wrong because i is 0-based index
+                  // while currentTierLevel is the actual level number (1, 2, 3...).
+                  const isCurrentTierOrLower = isUpgrade && upgradeContext &&
+                    Number(tier.level) <= Number(upgradeContext.currentTierLevel)
                   const isHigherTier = !isCurrentTierOrLower
-                  
+
                   return (
                     <label
                       key={tier.level}
@@ -356,7 +385,7 @@ export default function ProjectDetail() {
                           ? isLight
                             ? 'bg-slate-100 border-slate-200 cursor-not-allowed opacity-50'
                             : 'bg-slate-800 border-slate-700 cursor-not-allowed opacity-50'
-                          : selectedTier === tier.level
+                          : Number(selectedTier) === Number(tier.level)
                             ? isLight ? 'border-purple-500 bg-purple-50 cursor-pointer' : 'border-purple-500 bg-purple-900/20 cursor-pointer'
                             : isLight ? 'border-slate-200 hover:border-slate-300 cursor-pointer' : 'border-slate-700 hover:border-slate-600 cursor-pointer'
                       }`}
@@ -365,13 +394,13 @@ export default function ProjectDetail() {
                         type="radio"
                         name="tier"
                         value={tier.level}
-                        checked={selectedTier === tier.level}
-                        onChange={(e) => {
-                          setSelectedTier(parseInt(e.target.value))
-                          // Update upgrade difference if applicable
+                        checked={Number(selectedTier) === Number(tier.level)}
+                        onChange={async (e) => {
+                          const newLevel = parseInt(e.target.value)
+                          setSelectedTier(newLevel)
+                          // Fetch authoritative upgrade price from backend — never calculate locally
                           if (isUpgrade && upgradeContext) {
-                            const difference = tier.price - upgradeContext.currentPrice
-                            setUpgradeDifference(Math.max(0, difference))
+                            await fetchUpgradePrice(upgradeContext, newLevel, project.tiers)
                           }
                         }}
                         disabled={isCurrentTierOrLower}
@@ -416,14 +445,17 @@ export default function ProjectDetail() {
               {/* CTA Button */}
               <button
                 onClick={() => handlePurchase(currentTierData?.level || '', currentTierData?.price || 0, currentTierData?.name || '', currentTierData?.drive_link)}
-                className={`w-full font-bold py-3 rounded-lg transition-all transform hover:scale-105 mb-3 ${
+                disabled={isUpgrade && upgradePriceLoading}
+                className={`w-full font-bold py-3 rounded-lg transition-all transform hover:scale-105 mb-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                   isUpgrade
                     ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white'
                     : 'bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white'
                 }`}
               >
-                {isUpgrade 
-                  ? `Upgrade to ${currentTierData?.name} - ₹${upgradeDifference}`
+                {isUpgrade
+                  ? upgradePriceLoading
+                    ? 'Calculating price...'
+                    : `Upgrade to ${currentTierData?.name} - ₹${upgradeDifference}`
                   : 'Add to Cart'
                 }
               </button>

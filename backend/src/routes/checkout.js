@@ -1,6 +1,7 @@
 import express from "express";
 import Razorpay from "razorpay";
 import { pool } from "../config/database.js";
+import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -34,75 +35,74 @@ if (!USE_MOCK) {
   }
 }
 
-router.post("/create-order", async (req, res) => {
+router.post("/create-order", verifyToken, async (req, res) => {
   try {
-    const { amount, projectIds, email, phone } = req.body;
+    const { amount, projectIds, phone } = req.body;
+    const userId = req.userId;
 
-    console.log('📋 CREATE ORDER REQUEST:')
-    console.log('  - Amount (paise):', amount)
-    console.log('  - Amount (rupees):', amount / 100)
-    console.log('  - Projects:', projectIds)
-    console.log('  - Email:', email)
-    console.log('  - Phone:', phone)
+    console.log("📋 CREATE ORDER REQUEST:");
+    console.log("  - User ID:", userId);
+    console.log("  - Amount (paise):", amount);
+    console.log("  - Amount (rupees):", amount / 100);
+    console.log("  - Projects:", projectIds);
+    console.log("  - Phone:", phone);
 
-    if (!amount || !projectIds || !email || !phone) {
+    if (!amount || !projectIds || !phone) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     if (USE_MOCK || !razorpay) {
       const mockOrderId = `mock_${Date.now()}`;
-      console.log('🎭 Mock payment mode - Order ID:', mockOrderId)
-      return res.json({ success: true, orderId: mockOrderId, isMockPayment: true });
+      console.log("🎭 Mock payment mode - Order ID:", mockOrderId);
+      return res.json({
+        success: true,
+        orderId: mockOrderId,
+        isMockPayment: true,
+      });
     }
 
     const order = await razorpay.orders.create({
       amount: Math.round(amount),
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
-      notes: { projectIds: JSON.stringify(projectIds), email, phone },
+      notes: { userId, projectIds: JSON.stringify(projectIds), phone },
     });
-    console.log('✅ Order created - ID:', order.id)
+    console.log("✅ Order created - ID:", order.id);
     res.json({ success: true, orderId: order.id, isMockPayment: false });
   } catch (err) {
-    console.error('❌ Order creation failed:', err)
+    console.error("❌ Order creation failed:", err);
     res.status(500).json({ error: "Order failed", details: err.message });
   }
 });
 
-router.post("/verify-payment", async (req, res) => {
+router.post("/verify-payment", verifyToken, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { orderId, projectIds, tier, price, userEmail } = req.body;
+    const { orderId, projectIds, tier, price } = req.body;
+    const userId = req.userId;
+
+    // SECURITY: Extract user info from verified JWT, never from request body
+    console.log("✅ Verifying payment for authenticated user:", userId);
 
     await client.query("BEGIN");
 
-    // 1. Get or Create User
-    let userRes = await client.query('SELECT id FROM "User" WHERE email = $1', [userEmail]);
-    let userId;
-    if (userRes.rows.length > 0) {
-      userId = userRes.rows[0].id;
-    } else {
-      const newUser = await client.query(
-        'INSERT INTO "User" (email, name, password) VALUES ($1, $2, $3) RETURNING id',
-        [userEmail, userEmail.split('@')[0], 'auto-generated']
-      );
-      userId = newUser.rows[0].id;
-    }
-
-    // 2. Record Transaction in the Optimized 5-Table Schema
+    // Record Transaction using AUTHENTICATED user ID (from JWT)
     for (const projectId of projectIds) {
-      await client.query(`
+      await client.query(
+        `
         INSERT INTO "Transaction" (
           user_id, type, status, amount_in_paise, items, payment_info
         ) VALUES ($1, $2, $3, $4, $5, $6)
-      `, [
-        userId,
-        'purchase',
-        'completed',
-        Math.round(price * 100),
-        JSON.stringify({ projectId, tier }),
-        JSON.stringify({ orderId, provider: USE_MOCK ? 'mock' : 'razorpay' })
-      ]);
+      `,
+        [
+          userId, // CRITICAL: Use verified user from JWT
+          "purchase",
+          "completed",
+          Math.round(price * 100),
+          JSON.stringify({ projectId, tier }),
+          JSON.stringify({ orderId, provider: USE_MOCK ? "mock" : "razorpay" }),
+        ],
+      );
     }
 
     await client.query("COMMIT");

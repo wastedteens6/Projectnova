@@ -20,12 +20,21 @@ export default function Checkout() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const token = localStorage.getItem('token')
+  const userEmail = localStorage.getItem('userEmail')
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!token || !userEmail) {
+      setErrorAlert({ show: true, message: 'Please login to checkout' })
+      setTimeout(() => navigate('/auth/login'), 2000)
+    }
+  }, [token, userEmail, navigate])
 
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(false)
   const [pricesFetching, setPricesFetching] = useState(true)
   const [selectedPayment, setSelectedPayment] = useState('razorpay')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(userEmail || '')
   const [phone, setPhone] = useState('')
   const [successAlert, setSuccessAlert] = useState({ show: false, message: '' })
   const [errorAlert, setErrorAlert] = useState({ show: false, message: '' })
@@ -33,6 +42,8 @@ export default function Checkout() {
 
   // Get cart from localStorage and fetch fresh prices from database
   useEffect(() => {
+    if (!token || !userEmail) return; // Wait for auth check
+
     const fetchCartWithPrices = async () => {
       try {
         setPricesFetching(true)
@@ -63,50 +74,55 @@ export default function Checkout() {
 
         console.log('🛍️ Items to checkout:', itemsToCheckout)
 
-        // Fetch fresh prices from database for each cart item
+        // Fetch correct prices from backend for each cart item
         const updatedCart = await Promise.all(
           itemsToCheckout.map(async (item: CartItem) => {
             try {
+              // ─── UPGRADE ITEMS: price difference must come from the backend ───
+              // NEVER re-calculate on the frontend or use the full DB tier price.
+              if (item.isUpgrade) {
+                console.log(`⬆️  Upgrade item: ${item.name} → fetching server-computed upgrade price`)
+                const upgradeRes = await axios.post(
+                  'http://localhost:5000/api/purchases/upgrade-tier/preview',
+                  { project_id: String(item.id), target_tier_level: item.tierLevel },
+                  { headers: { Authorization: `Bearer ${token}` } }
+                )
+                const upgradeData = upgradeRes.data
+                console.log(`✅ Server upgrade price for ${item.name}: ₹${upgradeData.upgrade_price}`)
+                return {
+                  ...item,
+                  price: upgradeData.upgrade_price, // ONLY charge the difference
+                }
+              }
+
+              // ─── REGULAR ITEMS: fetch fresh price from DB ────────────────────
               console.log(`🔍 Fetching prices for: ${item.slug} (tier="${item.tier}", tierLevel=${item.tierLevel})`)
               const res = await axios.get(`http://localhost:5000/api/projects/${item.slug}`)
-              
+
               if (res.data?.success && res.data?.data?.tiers) {
                 const projectTiers = res.data.data.tiers
-                console.log(`📊 Available tiers for ${item.name}:`, projectTiers)
-                
-                // Try to match tier by level first (most reliable)
+
                 let matchingTier = null
                 if (item.tierLevel !== undefined && item.tierLevel !== null) {
                   matchingTier = projectTiers.find((t: any) => t.level === item.tierLevel)
-                  console.log(`  - Matched by level ${item.tierLevel}:`, matchingTier)
                 }
-                
-                // If no match by level, try by name
                 if (!matchingTier && item.tier) {
                   matchingTier = projectTiers.find((t: any) => t.name === item.tier)
-                  console.log(`  - Matched by name "${item.tier}":`, matchingTier)
                 }
-                
-                // If still no match, default to first tier
-                if (!matchingTier) {
-                  matchingTier = projectTiers[0]
-                  console.log(`  - Defaulted to first tier:`, matchingTier)
-                }
+                if (!matchingTier) matchingTier = projectTiers[0]
 
                 const finalPrice = matchingTier?.price || item.price
                 console.log(`✅ ${item.name}: Using price ₹${finalPrice}`)
-                
                 return {
                   ...item,
                   price: finalPrice,
                   tier: matchingTier?.name || item.tier,
-                  tierLevel: matchingTier?.level
+                  tierLevel: matchingTier?.level,
                 }
               }
-              console.log(`⚠️ No tiers found for ${item.slug}, using stored price: ₹${item.price}`)
               return item
             } catch (err) {
-              console.warn(`❌ Failed to fetch fresh price for ${item.slug}:`, err)
+              console.warn(`❌ Failed to fetch price for ${item.name}:`, err)
               return item
             }
           })
@@ -172,37 +188,67 @@ export default function Checkout() {
       console.log('💳 Payment initiated:')
       console.log('  - Total Price: ₹' + totalPrice)
       console.log('  - Cart Items:', cartItems)
-      console.log('  - Email:', email)
       console.log('  - Phone:', phone)
       
       // Create payment order
       const res = await axios.post('http://localhost:5000/api/checkout/create-order', {
         amount: totalPrice * 100, // Convert to paise
         projectIds: cartItems.map(item => item.id),
-        email,
         phone
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       })
 
       // Handle mock payment (development mode)
       if (res.data?.isMockPayment) {
-        setSuccessAlert({ show: true, message: '🎭 Mock Payment Successful! (Development Mode)' })
-        localStorage.removeItem('cart')
-        
-        // Add projects to saved projects
-        const existingProjects = JSON.parse(localStorage.getItem('savedProjects') || '[]')
-        cartItems.forEach(item => {
-          existingProjects.push({
-            id: item.id,
-            name: item.name,
-            tier: 'Level 1',
-            price: `₹${item.price}`,
-            date: new Date().toLocaleDateString(),
-            downloadLink: `/projects/${item.slug}`
+        console.log('🎭 Mock payment mode - saving to database')
+        try {
+          const mockOrderId = `mock_${Date.now()}`
+
+          // Process each cart item — upgrades use the confirm endpoint, regular buys use verify-payment
+          for (const item of cartItems) {
+            if (item.isUpgrade) {
+              // UPGRADE: call the dedicated confirm endpoint which updates the existing Transaction
+              await axios.post(
+                'http://localhost:5000/api/purchases/upgrade-tier/confirm',
+                {
+                  project_id: String(item.id),
+                  target_tier_level: item.tierLevel,
+                  order_id: `${mockOrderId}_${item.id}_upgrade`,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+              )
+              console.log(`✅ Upgrade confirmed for ${item.name} → tier level ${item.tierLevel}`)
+            } else {
+              // REGULAR PURCHASE
+              await axios.post(
+                'http://localhost:5000/api/checkout/verify-payment',
+                {
+                  orderId: `${mockOrderId}_${item.id}`,
+                  projectIds: [item.id],
+                  tier: item.tier || 'Level 1',
+                  price: item.price,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+              )
+              console.log(`✅ Purchase recorded for ${item.name}`)
+            }
+          }
+
+          setSuccessAlert({ show: true, message: '🎭 Mock Payment Successful! Purchase saved.' })
+          localStorage.removeItem('cart')
+          setTimeout(() => navigate('/dashboard'), 1500)
+        } catch (verifyErr) {
+          console.error('❌ Mock payment verification failed:', verifyErr)
+          setErrorAlert({
+            show: true,
+            message: 'Failed to save purchase: ' + ((verifyErr as any).response?.data?.error || (verifyErr as any).message),
           })
-        })
-        localStorage.setItem('savedProjects', JSON.stringify(existingProjects))
-        
-        setTimeout(() => navigate('/dashboard'), 2000)
+          setLoading(false)
+          return
+        }
         setLoading(false)
         return
       }
@@ -216,26 +262,40 @@ export default function Checkout() {
           name: 'WastedTeens☠️',
           description: `Purchasing ${cartItems.length} project(s)`,
           order_id: res.data.orderId,
-          handler: function (response: any) {
-            // Payment successful
-            localStorage.removeItem('cart')
-            setSuccessAlert({ show: true, message: 'Payment successful! Adding projects to your library...' })
-            
-            // Add projects to saved projects
-            const existingProjects = JSON.parse(localStorage.getItem('savedProjects') || '[]')
-            cartItems.forEach(item => {
-              existingProjects.push({
-                id: item.id,
-                name: item.name,
-                tier: 'Level 1',
-                price: `₹${item.price}`,
-                date: new Date().toLocaleDateString(),
-                downloadLink: `/projects/${item.slug}`
-              })
-            })
-            localStorage.setItem('savedProjects', JSON.stringify(existingProjects))
-            
-            setTimeout(() => navigate('/dashboard'), 2000)
+          handler: async function (response: any) {
+            try {
+              // Process each item — upgrades route to the confirm endpoint
+              for (const item of cartItems) {
+                if (item.isUpgrade) {
+                  await axios.post(
+                    'http://localhost:5000/api/purchases/upgrade-tier/confirm',
+                    {
+                      project_id: String(item.id),
+                      target_tier_level: item.tierLevel,
+                      order_id: response.razorpay_order_id,
+                    },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  )
+                } else {
+                  await axios.post(
+                    'http://localhost:5000/api/checkout/verify-payment',
+                    {
+                      orderId: response.razorpay_order_id,
+                      projectIds: [item.id],
+                      tier: item.tier || 'Level 1',
+                      price: item.price,
+                    },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  )
+                }
+              }
+              setSuccessAlert({ show: true, message: '✅ Payment successful! Generating receipt...' })
+              localStorage.removeItem('cart')
+              setTimeout(() => navigate(`/receipt/${response.razorpay_order_id}`), 1000)
+            } catch (verifyErr) {
+              console.error('Payment verification failed:', verifyErr)
+              setErrorAlert({ show: true, message: 'Verification failed. Please contact support.' })
+            }
           },
           prefill: {
             email,

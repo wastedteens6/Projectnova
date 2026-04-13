@@ -12,9 +12,16 @@ export default function Navbar() {
   const userRole = localStorage.getItem('userRole')
 
   const handleLogout = () => {
+    // SECURITY FIX: Clear all user-related data on logout
     localStorage.removeItem('token')
     localStorage.removeItem('userRole')
     localStorage.removeItem('userName')
+    localStorage.removeItem('userEmail')
+    localStorage.removeItem('cart')
+    localStorage.removeItem('savedProjects')
+    localStorage.removeItem('upgradeContext')
+    
+    // Redirect to login
     window.location.href = '/auth/login'
   }
 

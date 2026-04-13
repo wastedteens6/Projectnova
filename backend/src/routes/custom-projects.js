@@ -1,16 +1,32 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { pool } from '../config/database.js';
 import { adminAuth } from '../middleware/adminAuth.js';
 
 const router = express.Router();
 
+// Middleware to verify JWT token and extract userId
+const verifyToken = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Unauthorized - Token required" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    req.userEmail = decoded.email;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: "Invalid token" });
+  }
+};
+
 /**
  * @route POST /api/custom-projects/submit
+ * SECURITY: User must be authenticated to submit custom projects
  */
-router.post('/submit', async (req, res) => {
+router.post('/submit', verifyToken, async (req, res) => {
   try {
     const {
-      userEmail,
       projectName,
       description,
       technologies,
@@ -22,8 +38,12 @@ router.post('/submit', async (req, res) => {
       budget
     } = req.body;
 
-    if (!userEmail || !projectName || !description) {
-      return res.status(400).json({ success: false, message: 'Missing fields' });
+    // Use authenticated userId and userEmail
+    const userId = req.userId;
+    const userEmail = req.userEmail;
+
+    if (!projectName || !description) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
     const details = {

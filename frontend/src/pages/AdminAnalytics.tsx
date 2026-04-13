@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../context/ThemeContext'
 
 export default function AdminAnalytics() {
+  const navigate = useNavigate()
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalOrders, setTotalOrders] = useState(0)
   const [avgOrderValue, setAvgOrderValue] = useState(0)
@@ -61,15 +66,32 @@ export default function AdminAnalytics() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-red-900 text-white shadow-lg">
-        <div className="container flex items-center justify-between h-16">
-          <h1 className="text-2xl font-bold">Analytics</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition"
-          >
-            Logout
-          </button>
+      <header className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
+        <div className="container max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+          <h1 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Analytics</h1>
+          <div className="flex gap-3 items-center">
+            <button
+              onClick={() => navigate(-1)}
+              title="Go back to previous page"
+              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                isLight 
+                  ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <span>← Back</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                isLight
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'bg-red-700 text-white hover:bg-red-800'
+              }`}
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -147,6 +169,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
       </div>
+
     </div>
   )
 }

@@ -121,12 +121,25 @@ export default function AdminProjects() {
       <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Manage Projects</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-lg font-semibold transition-all bg-red-600 hover:bg-red-700 text-white"
-          >
-            Logout
-          </button>
+          <div className="flex gap-3 items-center">
+            <button
+              onClick={() => navigate(-1)}
+              title="Go back to previous page"
+              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                isLight 
+                  ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <span>← Back</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-lg font-semibold transition-all bg-red-600 hover:bg-red-700 text-white"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
@@ -286,6 +299,7 @@ export default function AdminProjects() {
           </div>
         )}
       </div>
+
     </div>
   )
 }

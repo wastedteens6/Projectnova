@@ -28,13 +28,40 @@ export default function AdminCustomProjects() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'quoted'>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Load projects from localStorage on mount
+  // Fetch projects from backend API on mount
   useEffect(() => {
-    const stored = localStorage.getItem('customProjects')
-    if (stored) {
-      setProjects(JSON.parse(stored))
+    const fetchProjects = async () => {
+      try {
+        const token = localStorage.getItem('adminToken')
+        if (!token) {
+          router.push('/admin/login')
+          return
+        }
+
+        const response = await fetch(`/api/admin/custom-projects?status=${filterStatus === 'all' ? '' : filterStatus}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.status === 401) {
+          router.push('/admin/login')
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch custom projects')
+        }
+
+        const data = await response.json()
+        setProjects(data.data || [])
+      } catch (error) {
+        console.error('Error fetching projects:', error)
+      }
     }
-  }, [])
+
+    fetchProjects()
+  }, [filterStatus, router])
 
   // No mock data - wait for actual data
 
@@ -46,16 +73,44 @@ export default function AdminCustomProjects() {
     return statusMatch && searchMatch
   })
 
-  const updateProjectStatus = (id: string, newStatus: 'pending' | 'approved' | 'rejected' | 'quoted') => {
-    const updated = projects.map(p => p.id === id ? { ...p, status: newStatus } : p)
-    setProjects(updated)
-    localStorage.setItem('customProjects', JSON.stringify(updated))
+  const updateProjectStatus = async (id: string, newStatus: 'pending' | 'approved' | 'rejected' | 'quoted') => {
+    try {
+      const token = localStorage.getItem('adminToken')
+      const response = await fetch(`/api/admin/custom-projects/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      })
+
+      if (response.ok) {
+        const updated = projects.map(p => p.id === id ? { ...p, status: newStatus } : p)
+        setProjects(updated)
+      }
+    } catch (error) {
+      console.error('Error updating project status:', error)
+    }
   }
 
-  const deleteProject = (id: string) => {
-    const updated = projects.filter(p => p.id !== id)
-    setProjects(updated)
-    localStorage.setItem('customProjects', JSON.stringify(updated))
+  const deleteProject = async (id: string) => {
+    try {
+      const token = localStorage.getItem('adminToken')
+      const response = await fetch(`/api/admin/custom-projects/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const updated = projects.filter(p => p.id !== id)
+        setProjects(updated)
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error)
+    }
   }
 
   const getStatusBadge = (status: string) => {

@@ -44,12 +44,32 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Rate limiters with different strictness levels
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  skip: (req) => process.env.NODE_ENV === "development", // Skip in development
 });
 
-// Apply rate limiter to API routes only, NOT to static files
+// Much more lenient limiter for auth endpoints (many login attempts during dev/testing)
+// SKIP for development to avoid blocking during testing
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10000,
+  skip: (req) => process.env.NODE_ENV === "development", // Skip in development
+});
+
+// Even more lenient for admin endpoints
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 1000,
+  skip: (req) => process.env.NODE_ENV === "development", // Skip in development
+});
+
+// Apply rate limiters - auth routes get more lenient treatment
+app.use("/api/auth", authLimiter);
+app.use("/api/admin", adminLimiter);
+// Apply stricter limiter to other API routes
 app.use("/api", limiter);
 
 // Serve uploaded files - BEFORE applying heavy middleware

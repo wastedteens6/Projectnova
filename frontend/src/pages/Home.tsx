@@ -182,6 +182,162 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Technology Cards Section */}
+      <section className={`py-20 px-4 transition-colors duration-300 ${
+        isLight ? 'bg-slate-50' : 'bg-slate-900/50'
+      }`}>
+        <div className="container max-w-6xl mx-auto">
+          {/* Section heading */}
+          <div className="text-center mb-16">
+            <h2 className={`text-4xl font-bold mb-3 transition-colors duration-300 ${
+              isLight ? 'text-slate-900' : 'text-white'
+            }`}>Explore by Technology</h2>
+            <p className={`text-lg transition-colors duration-300 ${
+              isLight ? 'text-slate-600' : 'text-slate-400'
+            }`}>Find projects built with the tech stack you're learning</p>
+          </div>
+
+          {/* Technology Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12">
+            {/* Python */}
+            <a href="/projects?tech=Python" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-blue-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-blue-100 to-blue-50' : 'bg-gradient-to-br from-blue-900/40 to-blue-800/40'
+              }`}>
+                🐍
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>Python</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Data & AI</p>
+              </div>
+            </a>
+
+            {/* Java */}
+            <a href="/projects?tech=Java" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-orange-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-orange-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-orange-100 to-orange-50' : 'bg-gradient-to-br from-orange-900/40 to-orange-800/40'
+              }`}>
+                ☕
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>Java</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Backend</p>
+              </div>
+            </a>
+
+            {/* Web Development */}
+            <a href="/projects?tech=Web" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-yellow-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-yellow-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-yellow-100 to-yellow-50' : 'bg-gradient-to-br from-yellow-900/40 to-yellow-800/40'
+              }`}>
+                🌐
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>Web Dev</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Frontend & Full Stack</p>
+              </div>
+            </a>
+
+            {/* Cloud Computing */}
+            <a href="/projects?tech=Cloud" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-cyan-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-cyan-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-cyan-100 to-cyan-50' : 'bg-gradient-to-br from-cyan-900/40 to-cyan-800/40'
+              }`}>
+                ☁️
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>Cloud</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>AWS & Azure</p>
+              </div>
+            </a>
+
+            {/* Cybersecurity */}
+            <a href="/projects?tech=Cybersecurity" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-red-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-red-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-red-100 to-red-50' : 'bg-gradient-to-br from-red-900/40 to-red-800/40'
+              }`}>
+                🔒
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>Security</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Cybersecurity</p>
+              </div>
+            </a>
+
+            {/* Blockchain */}
+            <a href="/projects?tech=Blockchain" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-purple-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-purple-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-purple-100 to-purple-50' : 'bg-gradient-to-br from-purple-900/40 to-purple-800/40'
+              }`}>
+                ⛓️
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>Blockchain</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Web3 & Crypto</p>
+              </div>
+            </a>
+
+            {/* IoT */}
+            <a href="/projects?tech=IoT" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-green-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-green-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-green-100 to-green-50' : 'bg-gradient-to-br from-green-900/40 to-green-800/40'
+              }`}>
+                📡
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>IoT</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Embedded Systems</p>
+              </div>
+            </a>
+
+            {/* Machine Learning */}
+            <a href="/projects?tech=AI" className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-2 cursor-pointer ${
+              isLight
+                ? 'bg-white border-slate-200 hover:border-indigo-300'
+                : 'bg-slate-800/50 border-slate-700 hover:border-indigo-500/50'
+            }`}>
+              <div className={`h-48 overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:scale-110 text-6xl ${
+                isLight ? 'bg-gradient-to-br from-indigo-100 to-indigo-50' : 'bg-gradient-to-br from-indigo-900/40 to-indigo-800/40'
+              }`}>
+                🤖
+              </div>
+              <div className={`p-4 text-center transition-colors duration-300 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
+                <h3 className={`font-bold text-lg ${isLight ? 'text-slate-900' : 'text-white'}`}>AI/ML</h3>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Machine Learning</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Featured Projects Section */}
       <FeaturedProjects />
 

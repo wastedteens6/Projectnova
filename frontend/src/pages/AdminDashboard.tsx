@@ -16,6 +16,8 @@ export default function AdminDashboard() {
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Redirect if not admin
   if (userRole !== 'admin') {
@@ -24,56 +26,61 @@ export default function AdminDashboard() {
   }
 
   // Fetch dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
+  const fetchDashboardData = async () => {
+    try {
+      setRefreshing(true)
+
+      // Fetch projects
+      const projectsRes = await axios.get('http://localhost:5000/api/projects')
+      const projects = projectsRes.data.data || []
+      setProjectCount(projects.length)
+      console.log('Projects:', projects.length)
+
+      // Fetch users
       try {
-        // Fetch projects
-        const projectsRes = await axios.get('http://localhost:5000/api/projects')
-        const projects = projectsRes.data.data || []
-        setProjectCount(projects.length)
-        console.log('Projects:', projects.length)
-
-        // Fetch users
-        try {
-          const token = localStorage.getItem('token')
-          const userRole = localStorage.getItem('userRole')
-          console.log('Fetching users - Token:', !!token, 'Role:', userRole)
-          
-          const usersRes = await axios.get('http://localhost:5000/api/auth/users', {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-          console.log('Users response full:', usersRes.data)
-          
-          const users = usersRes.data.data || usersRes.data.users || []
-          const userLength = Array.isArray(users) ? users.length : 0
-          setUserCount(userLength)
-          console.log('Users count:', userLength)
-        } catch (userErr: any) {
-          console.error('Users fetch error:', {
-            status: userErr.response?.status,
-            error: userErr.response?.data?.error,
-            message: userErr.message
-          })
-          setUserCount(0)
-        }
-
-        // Fetch orders
-        const ordersRes = await axios.get('http://localhost:5000/api/orders', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        const token = localStorage.getItem('token')
+        const userRole = localStorage.getItem('userRole')
+        console.log('Fetching users - Token:', !!token, 'Role:', userRole)
+        
+        const usersRes = await axios.get('http://localhost:5000/api/auth/users', {
+          headers: { Authorization: `Bearer ${token}` }
         })
-        const orders = ordersRes.data.data || []
-        setOrderCount(orders.length)
-
-        // Calculate total revenue
-        const revenue = orders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
-        setTotalRevenue(revenue)
-        // Set recent orders (last 5)
-        setRecentOrders(orders.slice(0, 5))
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err)
+        console.log('Users response full:', usersRes.data)
+        
+        const users = usersRes.data.data || usersRes.data.users || []
+        const userLength = Array.isArray(users) ? users.length : 0
+        setUserCount(userLength)
+        console.log('Users count:', userLength)
+      } catch (userErr: any) {
+        console.error('Users fetch error:', {
+          status: userErr.response?.status,
+          error: userErr.response?.data?.error,
+          message: userErr.message
+        })
+        setUserCount(0)
       }
-    }
 
+      // Fetch orders
+      const ordersRes = await axios.get('http://localhost:5000/api/orders', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      const orders = ordersRes.data.data || []
+      setOrderCount(orders.length)
+
+      // Calculate total revenue
+      const revenue = orders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
+      setTotalRevenue(revenue)
+      // Set recent orders (last 5)
+      setRecentOrders(orders.slice(0, 5))
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
     fetchDashboardData()
   }, [])
 
@@ -87,23 +94,64 @@ export default function AdminDashboard() {
 
   return (
     <div className={`min-h-screen transition-all duration-300 ${isLight ? 'bg-slate-50' : 'bg-slate-950'}`}>
-      {/* Simple Header */}
+      {/* Admin Header */}
       <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <div>
             <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Admin Dashboard</h1>
+            <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Welcome back, {userName}!</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-lg font-semibold transition-all bg-red-600 hover:bg-red-700 text-white"
-          >
-            Logout
-          </button>
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={() => navigate(-1)}
+              title="Go back to previous page"
+              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                isLight 
+                  ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <span>← Back</span>
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              disabled={refreshing}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                refreshing
+                  ? 'opacity-50 cursor-not-allowed'
+                  : isLight
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : 'bg-blue-900/40 text-blue-400 hover:bg-blue-900/60'
+              }`}
+              title="Reload page and refresh all dashboard stats"
+            >
+              <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
+              Refresh Stats
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-lg font-semibold transition-all bg-red-600 hover:bg-red-700 text-white"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      {/* Loading State */}
+      {loading ? (
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+              <p className={isLight ? 'text-slate-600' : 'text-slate-400'}>Loading dashboard data...</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Main Content */}
+          <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className={`rounded-lg p-6 shadow-sm border-t-4 border-red-500 transition-all ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
@@ -290,6 +338,9 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+        </>
+      )}
+
     </div>
   )
 }

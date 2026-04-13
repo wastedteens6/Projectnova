@@ -612,6 +612,21 @@ export default function AdminCreateProject() {
           </div>
         </form>
       </div>
+
+      {/* Bottom Navigation - Back Button Only */}
+      <div className="fixed bottom-6 left-6 z-40">
+        <button
+          onClick={() => navigate(-1)}
+          title="Go back to previous page"
+          className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+            isLight 
+              ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
+              : 'bg-slate-700 text-white hover:bg-slate-600'
+          }`}
+        >
+          <span>← Back</span>
+        </button>
+      </div>
     </div>
   )
 }

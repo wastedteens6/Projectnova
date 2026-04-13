@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { useNavigate } from 'react-router-dom'
 import { API_BASE_URL } from '../services/api'
 
 interface CustomProject {
@@ -21,6 +22,7 @@ interface CustomProject {
 }
 
 export default function AdminCustomProjects() {
+  const navigate = useNavigate()
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const [projects, setProjects] = useState<CustomProject[]>([])
@@ -68,13 +70,29 @@ export default function AdminCustomProjects() {
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 px-4 ${isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
-      <div className="container max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className={`text-4xl font-bold mb-4 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+    <div className={`min-h-screen ${isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
+      {/* Header */}
+      <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} pt-6 pb-6`}>
+        <div className="container max-w-6xl mx-auto px-4 flex items-center justify-between">
+          <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
             Custom Project Requests
           </h1>
+          <button
+            onClick={() => navigate(-1)}
+            title="Go back to previous page"
+            className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+              isLight 
+                ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
+                : 'bg-slate-700 text-white hover:bg-slate-600'
+            }`}
+          >
+            <span>← Back</span>
+          </button>
         </div>
+      </div>
+
+      <div className={`pt-12 pb-12 px-4 transition-all duration-300`}>
+        <div className="container max-w-6xl mx-auto">
 
         <div className={`p-4 rounded-lg border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'}`}>
           <label className={`block text-sm font-semibold mb-2 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
@@ -151,5 +169,6 @@ export default function AdminCustomProjects() {
         )}
       </div>
     </div>
+  </div>
   )
 }

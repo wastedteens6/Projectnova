@@ -1,87 +1,71 @@
 import express from "express";
-import jwt from "jsonwebtoken";
 import { pool } from "../config/database.js";
+import { verifyToken, verifyAdminToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // Get all orders (Admin only)
-router.get("/", async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "No token" });
-
+// CRITICAL: Use centralized verifyAdminToken middleware
+router.get("/", verifyAdminToken, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Check if user is admin
-    if (decoded.role !== "admin") {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
-
-    // Fetch all purchases with user, project, and tier details
+    // Fetch all transactions (purchases) with user and project details
     const result = await pool.query(`
       SELECT 
-        p.id,
-        p.user_id,
+        t.id as transaction_id,
+        t.user_id,
         u.email,
         u.name,
-        p.project_id,
+        t.items->>'projectId' as project_id,
         pr.title as project_title,
-        p.tier_id,
-        t.name as tier_name,
-        t.level as tier_level,
-        p.amount_in_paise,
-        (p.amount_in_paise / 100.0) as amount,
-        p.payment_order_id,
-        p.created_at,
-        p.updated_at
-      FROM "Purchase" p
-      LEFT JOIN "User" u ON p.user_id = u.id
-      LEFT JOIN "Project" pr ON p.project_id = pr.id
-      LEFT JOIN "Tier" t ON p.tier_id = t.id
-      ORDER BY p.created_at DESC
+        t.items->>'tier' as tier_level,
+        t.amount_in_paise as amount_in_paise,
+        (t.amount_in_paise / 100.0) as amount,
+        t.payment_info->>'orderId' as order_id,
+        t.status,
+        t.type,
+        t.created_at,
+        t.updated_at
+      FROM "Transaction" t
+      LEFT JOIN "User" u ON t.user_id = u.id
+      LEFT JOIN "Project" pr ON (t.items->>'projectId')::uuid = pr.id
+      WHERE t.type = 'purchase'
+      ORDER BY t.created_at DESC
     `);
 
     res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error("Get orders error:", err);
-    res.status(401).json({ error: "Invalid token or failed to fetch orders" });
+    res.status(500).json({ error: "Failed to fetch orders" });
   }
 });
 
 // Get user's orders
-router.get("/my-orders", async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "No token" });
-
+router.get("/my-orders", verifyToken, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const result = await pool.query(
       `
       SELECT 
-        p.id,
-        p.project_id,
+        t.id as transaction_id,
+        t.items->>'projectId' as project_id,
         pr.title as project_title,
-        p.tier_id,
-        t.name as tier_name,
-        t.level as tier_level,
-        p.amount_in_paise,
-        (p.amount_in_paise / 100.0) as amount,
-        p.payment_order_id,
-        p.created_at
-      FROM "Purchase" p
-      LEFT JOIN "Project" pr ON p.project_id = pr.id
-      LEFT JOIN "Tier" t ON p.tier_id = t.id
-      WHERE p.user_id = $1
-      ORDER BY p.created_at DESC
+        t.items->>'tier' as tier_level,
+        t.amount_in_paise as amount_in_paise,
+        (t.amount_in_paise / 100.0) as amount,
+        t.payment_info->>'orderId' as order_id,
+        t.status,
+        t.created_at
+      FROM "Transaction" t
+      LEFT JOIN "Project" pr ON (t.items->>'projectId')::uuid = pr.id
+      WHERE t.user_id = $1 AND t.type = 'purchase'
+      ORDER BY t.created_at DESC
     `,
-      [decoded.id],
+      [req.userId],
     );
 
     res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error("Get user orders error:", err);
-    res.status(401).json({ error: "Invalid token or failed to fetch orders" });
+    res.status(500).json({ error: "Failed to fetch orders" });
   }
 });
 

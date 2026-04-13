@@ -47,30 +47,62 @@ export default function CustomProjectDetail() {
     notes: ''
   })
 
-  // Load project from localStorage
+  // Load project from backend API
   useEffect(() => {
-    const stored = localStorage.getItem('customProjects')
-    if (stored) {
-      const projects: CustomProject[] = JSON.parse(stored)
-      const found = projects.find(p => p.id === projectId)
-      if (found) {
-        setProject(found)
+    const fetchProject = async () => {
+      try {
+        const token = localStorage.getItem('adminToken')
+        if (!token) {
+          router.push('/admin/login')
+          return
+        }
+
+        const response = await fetch(`/api/admin/custom-projects/${projectId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.status === 401) {
+          router.push('/admin/login')
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch project')
+        }
+
+        const data = await response.json()
+        setProject(data.data)
+      } catch (error) {
+        console.error('Error fetching project:', error)
+      } finally {
+        setLoading(false)
       }
     }
-    setLoading(false)
-  }, [projectId])
 
-  const updateProjectStatus = (newStatus: CustomProject['status']) => {
+    fetchProject()
+  }, [projectId, router])
+
+  const updateProjectStatus = async (newStatus: CustomProject['status']) => {
     if (!project) return
 
-    const stored = localStorage.getItem('customProjects')
-    if (stored) {
-      const projects: CustomProject[] = JSON.parse(stored)
-      const updated = projects.map(p =>
-        p.id === projectId ? { ...p, status: newStatus } : p
-      )
-      localStorage.setItem('customProjects', JSON.stringify(updated))
-      setProject({ ...project, status: newStatus })
+    try {
+      const token = localStorage.getItem('adminToken')
+      const response = await fetch(`/api/admin/custom-projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      })
+
+      if (response.ok) {
+        setProject({ ...project, status: newStatus })
+      }
+    } catch (error) {
+      console.error('Error updating project status:', error)
     }
   }
 

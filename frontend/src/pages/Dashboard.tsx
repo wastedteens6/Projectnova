@@ -8,28 +8,55 @@ export default function Dashboard() {
   const navigate = useNavigate()
 
   const [userName, setUserName] = useState('User')
-  const [savedProjects, setSavedProjects] = useState<any[]>([])
-
+  const [userEmail, setUserEmail] = useState('')
+  const [purchasedProjects, setPurchasedProjects] = useState<any[]>([])
   const [cartItems, setCartItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Fetch user-specific data from backend
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const email = localStorage.getItem('userEmail')
+      
+      if (!token || !email) {
+        navigate('/auth/login')
+        return
+      }
+
+      setRefreshing(true)
+
+      // Fetch user's purchased projects
+      const response = await fetch(`http://localhost:5000/api/purchases/user?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch purchases')
+      }
+
+      const data = await response.json()
+      setPurchasedProjects(data.data || [])
+      setUserEmail(email)
+
+      // Get stored name
+      const storedUserName = localStorage.getItem('userName')
+      if (storedUserName) {
+        setUserName(storedUserName)
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    // Get user name from localStorage
-    const storedUserName = localStorage.getItem('userName')
-    if (storedUserName) {
-      setUserName(storedUserName)
-    }
+    fetchUserData()
 
-    // Get saved projects from localStorage
-    const storedProjects = localStorage.getItem('savedProjects')
-    if (storedProjects) {
-      try {
-        setSavedProjects(JSON.parse(storedProjects))
-      } catch (err) {
-        console.error('Error parsing saved projects:', err)
-      }
-    }
-
-    // Get cart items
+    // Get cart items from localStorage (local, not server-stored)
     const storedCart = localStorage.getItem('cart')
     if (storedCart) {
       try {
@@ -56,34 +83,97 @@ export default function Dashboard() {
     navigate('/checkout')
   }
 
-  // Calculate total spent based on saved projects
-  const totalSpent = savedProjects.reduce((acc: number, curr: any) => {
-    const priceStr = curr.price?.toString() || '0'
-    const numericPrice = parseInt(priceStr.replace(/[^0-9]/g, ''), 10) || 0
-    return acc + numericPrice
+  const handleUpgrade = (project: any) => {
+    // Store upgrade context and navigate to project detail with upgrade flag
+    const upgradeData = {
+      projectId: project.projectId,
+      projectSlug: project.slug,
+      projectTitle: project.name,
+      currentTier: project.tier,
+      currentTierLevel: project.currentTierLevel,
+      currentPrice: project.price / 100, // Convert paise to rupees
+      availableTiers: project.tiers || []
+    }
+    localStorage.setItem('upgradeContext', JSON.stringify(upgradeData))
+    navigate(`/projects/${project.slug}?upgrade=true`)
+  }
+
+  // Calculate total spent based on purchased projects
+  const totalSpent = purchasedProjects.reduce((acc: number, curr: any) => {
+    // Convert from paise to rupees (divide by 100)
+    // If price is already in rupees (string format), use as-is
+    let priceInRupees = 0;
+    
+    if (typeof curr.price === 'number') {
+      // If it's a number and > 100, assume it's in paise
+      priceInRupees = curr.price > 100 ? curr.price / 100 : curr.price;
+    } else {
+      // Parse string price
+      const priceStr = curr.price?.toString() || '0';
+      const numericPrice = parseInt(priceStr.replace(/[^0-9]/g, ''), 10) || 0;
+      // If number is > 100, assume it's paise
+      priceInRupees = numericPrice > 100 ? numericPrice / 100 : numericPrice;
+    }
+    
+    return acc + priceInRupees;
   }, 0)
 
   const stats = [
-    { label: 'Purchased Projects', value: savedProjects.length.toString(), icon: '📦', color: 'from-purple-600 to-pink-600' },
+    { label: 'Purchased Projects', value: purchasedProjects.length.toString(), icon: '📦', color: 'from-purple-600 to-pink-600' },
     { label: 'Support Tickets', value: '0', icon: '🎫', color: 'from-blue-600 to-cyan-600' },
     { label: 'Total Spent', value: `₹${totalSpent.toLocaleString()}`, icon: '💰', color: 'from-green-600 to-emerald-600' }
   ]
+
+  // Render loading state
+  if (loading) {
+    return (
+      <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 ${
+        isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+      }`}>
+        <div className="container max-w-6xl mx-auto">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+              <p className={isLight ? 'text-slate-600' : 'text-slate-400'}>Loading your dashboard...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 ${
       isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
     }`}>
       <div className="container max-w-6xl mx-auto">
-        {/* Header with User Name */}
-        <div className="mb-12">
-          <h1 className="text-5xl font-black mb-2">
-            <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-              Welcome, {userName}!
-            </span>
-          </h1>
-          <p className={`transition-colors duration-300 ${
-            isLight ? 'text-slate-600' : 'text-slate-400'
-          }`}>Here is your account overview and purchased projects</p>
+        {/* Header with User Name and Refresh Button */}
+        <div className="flex justify-between items-start mb-12">
+          <div>
+            <h1 className="text-5xl font-black mb-2">
+              <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                Welcome, {userName}!
+              </span>
+            </h1>
+            <p className={`transition-colors duration-300 ${
+              isLight ? 'text-slate-600' : 'text-slate-400'
+            }`}>Here is your account overview and purchased projects</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            disabled={refreshing}
+            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
+              refreshing
+                ? 'opacity-50 cursor-not-allowed'
+                : isLight
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  : 'bg-cyan-900/40 text-cyan-400 hover:bg-cyan-900/60'
+            }`}
+            title="Reload page and refresh dashboard data"
+          >
+            <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
+            Refresh
+          </button>
         </div>
         
         {/* Stats Grid */}
@@ -221,7 +311,7 @@ export default function Dashboard() {
             isLight ? 'text-purple-600' : 'text-cyan-400'
           }`}>Your Purchased Projects</h2>
           
-          {savedProjects.length === 0 ? (
+          {purchasedProjects.length === 0 ? (
             <div className="text-center py-12">
               <p className={`mb-4 transition-colors duration-300 ${
                 isLight ? 'text-slate-600' : 'text-slate-400'
@@ -232,7 +322,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedProjects.map((project, i) => (
+              {purchasedProjects.map((project, i) => (
                 <div key={i} className={`relative p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   isLight
                     ? 'bg-white border-slate-200 hover:border-purple-300 hover:shadow-purple-200/50'
@@ -251,17 +341,39 @@ export default function Dashboard() {
                   <div className={`flex items-end justify-between pt-4 border-t ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
                     <div>
                       <p className={`text-xs uppercase tracking-wider font-bold mb-1 ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>Paid</p>
-                      <p className={`text-xl font-black ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>{project.price || '₹0'}</p>
+                      <p className={`text-xl font-black ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                        ₹{(() => {
+                          // Convert paise to rupees if needed
+                          const price = typeof project.price === 'number' 
+                            ? (project.price > 100 ? project.price / 100 : project.price).toLocaleString()
+                            : project.price || '0';
+                          return price;
+                        })()}
+                      </p>
                     </div>
                     
-                    <a
-                      href={project.downloadLink || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm flex items-center gap-2 hover:scale-105 transition shadow-lg shadow-green-500/30"
-                    >
-                      <span>📥</span> Access
-                    </a>
+                    <div className="flex gap-2">
+                      <a
+                        href={(() => {
+                          // Find the tier matching the current tier level and get its drive_link
+                          const currentTier = project.tiers?.find((t: any) => t.level === project.currentTierLevel);
+                          return currentTier?.drive_link || '#';
+                        })()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm flex items-center gap-2 hover:scale-105 transition shadow-lg shadow-green-500/30"
+                        title="Access this project"
+                      >
+                        <span>📥</span> Access
+                      </a>
+                      <button
+                        onClick={() => handleUpgrade(project)}
+                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm flex items-center gap-2 hover:scale-105 transition shadow-lg shadow-blue-500/30"
+                        title="Upgrade to a higher tier"
+                      >
+                        <span>⬆️</span> Upgrade
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

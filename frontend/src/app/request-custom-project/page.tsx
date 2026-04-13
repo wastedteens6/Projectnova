@@ -108,44 +108,65 @@ export default function CustomProjectPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
       return
     }
 
-    // Save to localStorage for admin to review
-    const stored = localStorage.getItem('customProjects')
-    const projects = stored ? JSON.parse(stored) : []
-    const newProject = {
-      id: Date.now().toString(),
-      ...formData,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    }
-    projects.push(newProject)
-    localStorage.setItem('customProjects', JSON.stringify(projects))
-
-    console.log('Form submitted:', formData)
-    setSubmitted(true)
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setFormData({
-        projectName: '',
-        description: '',
-        technologies: '',
-        domain: '',
-        inputOutput: '',
-        deliverables: [],
-        expectedDeadline: '',
-        email: '',
-        phone: '',
-        budget: ''
+    try {
+      // Send to backend API
+      const response = await fetch('/api/custom-projects/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userEmail: formData.email,
+          projectName: formData.projectName,
+          description: formData.description,
+          technologies: formData.technologies,
+          domain: formData.domain,
+          inputOutput: formData.inputOutput,
+          deliverables: formData.deliverables,
+          expectedDeadline: formData.expectedDeadline,
+          phone: formData.phone,
+          budget: formData.budget
+        })
       })
-      setSubmitted(false)
-    }, 3000)
+
+      if (!response.ok) {
+        throw new Error('Failed to submit custom project request')
+      }
+
+      const data = await response.json()
+      console.log('Form submitted successfully:', data)
+      setSubmitted(true)
+
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        setFormData({
+          projectName: '',
+          description: '',
+          technologies: '',
+          domain: '',
+          inputOutput: '',
+          deliverables: [],
+          expectedDeadline: '',
+          email: '',
+          phone: '',
+          budget: ''
+        })
+        setSubmitted(false)
+      }, 3000)
+    } catch (error) {
+      console.error('Error submitting request:', error)
+      setErrors(prev => ({
+        ...prev,
+        submit: 'Failed to submit request. Please try again.'
+      }))
+    }
   }
 
   return (
