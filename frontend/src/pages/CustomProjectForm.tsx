@@ -118,10 +118,12 @@ export default function CustomProjectForm() {
     setLoading(true)
 
     try {
+      const token = localStorage.getItem('token')
       const response = await fetch(`${API_BASE_URL}/custom-projects/submit`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           userEmail: formData.email,

@@ -56,11 +56,22 @@ export default function Dashboard() {
   useEffect(() => {
     fetchUserData()
 
-    // Get cart items from localStorage (local, not server-stored)
+    // Get cart items from localStorage — deduplicate by project id
     const storedCart = localStorage.getItem('cart')
     if (storedCart) {
       try {
-        setCartItems(JSON.parse(storedCart))
+        const parsed = JSON.parse(storedCart)
+        // Keep only the last entry per project id (most recent tier selection wins)
+        const seen = new Map<string, any>()
+        for (const item of parsed) {
+          seen.set(String(item.id), item)
+        }
+        const deduped = Array.from(seen.values())
+        setCartItems(deduped)
+        // Persist deduped cart back so it's clean
+        if (deduped.length !== parsed.length) {
+          localStorage.setItem('cart', JSON.stringify(deduped))
+        }
       } catch (err) {
         console.error('Error parsing cart:', err)
       }
@@ -73,9 +84,10 @@ export default function Dashboard() {
     localStorage.setItem('cart', JSON.stringify(updatedCart))
   }
 
-  const handleBuyNow = (itemId: string) => {
-    // Navigate to checkout with itemId parameter to checkout only this item
-    navigate(`/checkout?itemId=${itemId}`)
+  const handleBuyNow = (item: any) => {
+    // Store this single item in sessionStorage so checkout charges only it
+    sessionStorage.setItem('pendingCheckout', JSON.stringify(item))
+    navigate('/checkout')
   }
 
   const handleCheckoutAll = () => {
@@ -240,9 +252,13 @@ export default function Dashboard() {
                     }`}>⬆ Upgrade</span>}
                   </div>
                   
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-                    isLight ? 'bg-purple-100' : item.isUpgrade ? 'bg-amber-900/30' : 'bg-slate-900'
-                  }`}>{item.isUpgrade ? '⬆' : '🛍️'}</div>
+                  {item.image ? (
+                    <img src={item.image.startsWith('http') ? item.image : `http://localhost:5000${item.image}`} alt={item.name} className="w-12 h-12 rounded-xl object-cover mb-4" />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
+                      isLight ? 'bg-purple-100' : item.isUpgrade ? 'bg-amber-900/30' : 'bg-slate-900'
+                    }`}>{item.isUpgrade ? '⬆' : '🛍️'}</div>
+                  )}
                   
                   <h3 className={`text-lg font-black mb-1 line-clamp-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h3>
                   <p className={`text-sm font-semibold mb-4 ${
@@ -280,7 +296,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleBuyNow(item.id)}
+                        onClick={() => handleBuyNow(item)}
                         className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:bg-green-600 hover:scale-105 transition font-semibold text-sm flex items-center gap-1"
                         title="Buy this item now"
                       >
@@ -323,56 +339,76 @@ export default function Dashboard() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {purchasedProjects.map((project, i) => (
-                <div key={i} className={`relative p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                <div key={i} className={`group rounded-2xl border overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
                   isLight
-                    ? 'bg-white border-slate-200 hover:border-purple-300 hover:shadow-purple-200/50'
-                    : 'bg-slate-800/50 border-slate-700 hover:border-cyan-500/50 hover:shadow-cyan-900/50'
+                    ? 'bg-white border-slate-100 hover:border-slate-200'
+                    : 'bg-slate-900/40 border-slate-700/50 hover:border-slate-600'
                 }`}>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-                    isLight ? 'bg-green-100' : 'bg-slate-900'
-                  }`}>📦</div>
-                  
-                  <h3 className={`text-lg font-black mb-1 line-clamp-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>{project.name || 'Project'}</h3>
-                  <div className="flex justify-between items-center mb-4">
-                    <p className={`text-sm font-semibold ${isLight ? 'text-purple-600' : 'text-cyan-400'}`}>{project.tier || 'Level 1'}</p>
-                    <span className={`text-xs font-medium px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{project.date || 'N/A'}</span>
+                  {/* Browse Page Style Image Header */}
+                  <div className={`relative h-48 overflow-hidden ${isLight ? 'bg-slate-100' : 'bg-slate-800'}`}>
+                    {project.image ? (
+                      <img src={project.image.startsWith('http') ? project.image : `http://localhost:5000${project.image}`} alt={project.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg className="w-16 h-16 opacity-60" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" /></svg>
+                      </div>
+                    )}
+                    {/* Hovering Tier Badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded shadow-sm uppercase tracking-wide ${
+                        isLight ? 'bg-purple-100 text-purple-700' : 'bg-cyan-900/80 text-cyan-300 backdrop-blur-sm'
+                      }`}>
+                        {project.tier || 'Level 1'}
+                      </span>
+                    </div>
                   </div>
                   
-                  <div className={`flex items-end justify-between pt-4 border-t ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
-                    <div>
-                      <p className={`text-xs uppercase tracking-wider font-bold mb-1 ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>Paid</p>
-                      <p className={`text-xl font-black ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
-                        ₹{(() => {
-                          // Convert paise to rupees if needed
-                          const price = typeof project.price === 'number' 
-                            ? (project.price > 100 ? project.price / 100 : project.price).toLocaleString()
-                            : project.price || '0';
-                          return price;
-                        })()}
-                      </p>
+                  {/* Card Content & Action Area */}
+                  <div className={`p-5 flex flex-col h-[calc(100%-12rem)] ${isLight ? 'bg-white' : 'bg-slate-900'}`}>
+                    <div className="flex justify-between items-start mb-1">
+                       <h3 className={`font-bold text-lg line-clamp-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>{project.name || 'Project'}</h3>
                     </div>
+                    {/* Date Purchased */}
+                    <p className={`text-xs mb-4 font-medium ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Purchased: {project.date || 'N/A'}</p>
                     
-                    <div className="flex gap-2">
-                      <a
-                        href={(() => {
-                          // Find the tier matching the current tier level and get its drive_link
-                          const currentTier = project.tiers?.find((t: any) => t.level === project.currentTierLevel);
-                          return currentTier?.drive_link || '#';
-                        })()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm flex items-center gap-2 hover:scale-105 transition shadow-lg shadow-green-500/30"
-                        title="Access this project"
-                      >
-                        <span>📥</span> Access
-                      </a>
-                      <button
-                        onClick={() => handleUpgrade(project)}
-                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm flex items-center gap-2 hover:scale-105 transition shadow-lg shadow-blue-500/30"
-                        title="Upgrade to a higher tier"
-                      >
-                        <span>⬆️</span> Upgrade
-                      </button>
+                    <div className={`mt-auto pt-4 border-t ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <p className={`text-xs uppercase font-bold mb-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Amount Paid</p>
+                          <p className={`text-xl font-black ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                            ₹{(() => {
+                              const price = typeof project.price === 'number' ? (project.price > 100 ? project.price / 100 : project.price).toLocaleString() : project.price || '0';
+                              return price;
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Grid Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <a
+                          href={(() => {
+                            if (project.driveLink) return project.driveLink
+                            const tiers: any[] = project.tiers || []
+                            const currentLevel = project.currentTierLevel || 1
+                            const match = tiers.find((t: any) => Number(t.level) === Number(currentLevel))
+                            return match?.drive_link || '#'
+                          })()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-green-500/30"
+                          title={`Access tier ${project.currentTierLevel || 1}`}
+                        >
+                          📥 Access
+                        </a>
+                        <button
+                          onClick={() => handleUpgrade(project)}
+                          className="flex items-center justify-center px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-blue-500/30"
+                          title="Upgrade"
+                        >
+                          ⬆️ Upgrade
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

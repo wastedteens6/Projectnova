@@ -14,45 +14,43 @@ const COMPANY_INFO = {
   gst: "27AABCT1234H1Z0",
 };
 
-const generateReceiptData = (transaction, user, project) => {
-  const tierLevel = parseInt(transaction.items?.tier || 1);
-  const tierInfo = project.tiers?.find((t) => t.level === tierLevel) || {
-    name: `Tier ${tierLevel}`,
-    price: 0,
-  };
-
+const generateReceiptData = (order, user, project, tierName) => {
   return {
     company: COMPANY_INFO,
-    transactionId: transaction.id,
-    receiptNumber: `RCP-${transaction.id.toString().substring(0, 8).toUpperCase()}`,
-    date: new Date(transaction.created_at).toLocaleDateString("en-IN"),
-    time: new Date(transaction.created_at).toLocaleTimeString("en-IN"),
+    transactionId: order.id,
+    receiptNumber: `RCP-${order.id.toString().substring(0, 8).toUpperCase()}`,
+    date: new Date(order.created_at).toLocaleDateString("en-IN"),
+    time: new Date(order.created_at).toLocaleTimeString("en-IN"),
     user: { name: user.name, email: user.email },
     project: { name: project.title, id: project.id },
-    tier: tierInfo.name,
-    amount: `₹${transaction.amount_in_paise / 100}`,
-    amountInPaise: transaction.amount_in_paise,
-    gst: Math.round(transaction.amount_in_paise * 0.18),
-    totalAmount: Math.round(transaction.amount_in_paise * 1.18),
-    paymentMethod: transaction.payment_info?.provider || "Razorpay",
-    status:
-      transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1),
-    orderId: transaction.payment_info?.orderId || "N/A",
+    tier: tierName || "Unknown",
+    amount: `₹${order.amount_in_paise / 100}`,
+    amountInPaise: order.amount_in_paise,
+    gst: Math.round(order.amount_in_paise * 0.18),
+    totalAmount: Math.round(order.amount_in_paise * 1.18),
+    paymentMethod: order.payment_info?.provider || "Razorpay",
+    status: order.status
+      ? order.status.charAt(0).toUpperCase() + order.status.slice(1)
+      : "Completed",
+    orderId: order.order_id || "N/A",
   };
 };
 
+// ─── GET /api/receipts/receipt/:transactionId ─────────────────────────
 router.get("/receipt/:transactionId", verifyToken, async (req, res) => {
   try {
     const { transactionId } = req.params;
-    const userId = req.userId; // SECURITY: Get from verified JWT
+    const userId = req.userId;
 
     const result = await pool.query(
       `
-      SELECT t.*, u.name, u.email, p.title, p.tiers, p.id as project_id
-      FROM "Transaction" t
-      LEFT JOIN "User" u ON t.user_id = u.id
-      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-      WHERE t.id = $1
+      SELECT o.*, u.name, u.email, p.title, p.tiers, p.id as project_id,
+             tier.name as tier_name
+      FROM "Order" o
+      LEFT JOIN "User" u ON o.user_id = u.id
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      WHERE o.id = $1
     `,
       [transactionId],
     );
@@ -60,10 +58,9 @@ router.get("/receipt/:transactionId", verifyToken, async (req, res) => {
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
 
-    const trans = result.rows[0];
+    const order = result.rows[0];
 
-    // CRITICAL: Verify user owns this transaction
-    if (trans.user_id !== userId) {
+    if (order.user_id !== userId) {
       return res.status(403).json({
         error: "Forbidden - You can only view your own receipts",
         code: "USER_MISMATCH",
@@ -71,29 +68,34 @@ router.get("/receipt/:transactionId", verifyToken, async (req, res) => {
     }
 
     const receiptData = generateReceiptData(
-      trans,
-      { name: trans.name, email: trans.email },
-      { title: trans.title, id: trans.project_id, tiers: trans.tiers },
+      order,
+      { name: order.name, email: order.email },
+      { title: order.title, id: order.project_id, tiers: order.tiers },
+      order.tier_name,
     );
 
     res.json({ success: true, receipt: receiptData });
   } catch (err) {
+    console.error("Receipt error:", err);
     res.status(500).json({ error: "Failed to fetch receipt" });
   }
 });
 
+// ─── GET /api/receipts/download-txt/:transactionId ───────────────────
 router.get("/download-txt/:transactionId", verifyToken, async (req, res) => {
   try {
     const { transactionId } = req.params;
-    const userId = req.userId; // SECURITY: Get from verified JWT
+    const userId = req.userId;
 
     const result = await pool.query(
       `
-      SELECT t.*, u.name, u.email, p.title, p.tiers, p.id as project_id
-      FROM "Transaction" t
-      LEFT JOIN "User" u ON t.user_id = u.id
-      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-      WHERE t.id = $1
+      SELECT o.*, u.name, u.email, p.title, p.tiers, p.id as project_id,
+             tier.name as tier_name
+      FROM "Order" o
+      LEFT JOIN "User" u ON o.user_id = u.id
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      WHERE o.id = $1
     `,
       [transactionId],
     );
@@ -101,32 +103,33 @@ router.get("/download-txt/:transactionId", verifyToken, async (req, res) => {
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
 
-    const trans = result.rows[0];
+    const order = result.rows[0];
 
-    // CRITICAL: Verify user owns this transaction
-    if (trans.user_id !== userId) {
+    if (order.user_id !== userId) {
       return res
         .status(403)
         .json({ error: "Forbidden - You can only download your own receipts" });
     }
 
-    const receipt = generateReceiptData(trans, trans, {
-      title: trans.title,
-      id: trans.project_id,
-      tiers: trans.tiers,
-    });
+    const receipt = generateReceiptData(
+      order,
+      { name: order.name, email: order.email },
+      { title: order.title, id: order.project_id, tiers: order.tiers },
+      order.tier_name,
+    );
 
     const txt = `
 ╔════════════════════════════════════════════════════════════════╗
 ║                ${COMPANY_INFO.name.padEnd(46)}║
-║                ${COMPANY_INFO.tagline.padEnd(46)}║\n╠════════════════════════════════════════════════════════════════╣
+║                ${COMPANY_INFO.tagline.padEnd(46)}║
+╠════════════════════════════════════════════════════════════════╣
 ║ Receipt Number: ${receipt.receiptNumber.padEnd(45)}║
 ║ Date: ${receipt.date.padEnd(57)}║
 ║ Time: ${receipt.time.padEnd(57)}║
 ╠════════════════════════════════════════════════════════════════╣
 ║ CUSTOMER INFORMATION                                             ║
-║ Name: ${trans.name?.padEnd(59)}║
-║ Email: ${trans.email?.padEnd(58)}║
+║ Name: ${(order.name || "").padEnd(59)}║
+║ Email: ${(order.email || "").padEnd(58)}║
 ╠════════════════════════════════════════════════════════════════╣
 ║ PROJECT DETAILS                                                  ║
 ║ Project: ${receipt.project.name.substring(0, 50).padEnd(50)}║
@@ -149,6 +152,7 @@ Thank you for your purchase!
     res.setHeader("Content-Type", "text/plain");
     res.send(txt);
   } catch (err) {
+    console.error("Download error:", err);
     res.status(500).json({ error: "Download failed" });
   }
 });

@@ -31,8 +31,10 @@ export default function AdminCustomProjects() {
   const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
-    const token = localStorage.getItem('adminToken')
-    if (!token) {
+    const token = localStorage.getItem('token')
+    const userRole = localStorage.getItem('userRole')
+    
+    if (!token || userRole !== 'admin') {
       setLoading(false)
       return
     }
@@ -58,6 +60,32 @@ export default function AdminCustomProjects() {
 
     fetchProjects()
   }, [statusFilter])
+
+  const handleStatusUpdate = async (id: string, newStatus: string) => {
+    const token = localStorage.getItem('token')
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/custom-projects/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setProjects(projects.map(p => p.id === id ? { ...p, status: newStatus as any } : p))
+        if (selectedProject?.id === id) {
+          setSelectedProject({ ...selectedProject, status: newStatus as any })
+        }
+      } else {
+        alert(data.message || 'Failed to update status')
+      }
+    } catch (err) {
+      console.error('Status update error:', err)
+      alert('An error occurred while updating status')
+    }
+  }
 
   const getStatusColor = (status: string): string => {
     const colors: { [key: string]: string } = {
@@ -164,6 +192,32 @@ export default function AdminCustomProjects() {
               <p><strong>Domain:</strong> {selectedProject.domain}</p>
               <p><strong>Budget:</strong> {selectedProject.budget || 'N/A'}</p>
               <p><strong>Description:</strong> {selectedProject.description}</p>
+            </div>
+            
+            <div className={`mt-6 pt-4 flex flex-wrap gap-3 border-t ${isLight ? 'border-slate-200' : 'border-slate-700'}`}>
+              <button 
+                onClick={() => handleStatusUpdate(selectedProject.id, 'approved')} 
+                disabled={selectedProject.status === 'approved'}
+                className="px-5 py-2 font-bold rounded-lg text-sm bg-green-500 hover:bg-green-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Approve
+              </button>
+              
+              <button 
+                onClick={() => handleStatusUpdate(selectedProject.id, 'reviewed')} 
+                disabled={selectedProject.status === 'reviewed'}
+                className="px-5 py-2 font-bold rounded-lg text-sm bg-blue-500 hover:bg-blue-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reviewed
+              </button>
+              
+              <button 
+                onClick={() => handleStatusUpdate(selectedProject.id, 'rejected')} 
+                disabled={selectedProject.status === 'rejected'}
+                className="px-5 py-2 font-bold rounded-lg text-sm bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reject
+              </button>
             </div>
           </div>
         )}

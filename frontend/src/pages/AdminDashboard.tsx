@@ -67,9 +67,9 @@ export default function AdminDashboard() {
       const orders = ordersRes.data.data || []
       setOrderCount(orders.length)
 
-      // Calculate total revenue
-      const revenue = orders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
-      setTotalRevenue(revenue)
+      // Amount is already in rupees (orders.js divides paise by 100 in SQL)
+      const revenue = orders.reduce((sum: number, order: any) => sum + (Number(order.amount) || 0), 0)
+      setTotalRevenue(Math.round(revenue))
       // Set recent orders (last 5)
       setRecentOrders(orders.slice(0, 5))
     } catch (err) {
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className={`py-3 px-4 ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>{order.project_title || 'N/A'}</td>
-                      <td className={`py-3 px-4 font-semibold ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>₹{order.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                      <td className={`py-3 px-4 font-semibold ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>₹{Math.round(Number(order.amount) || 0).toLocaleString('en-IN')}</td>
                       <td className="py-3 px-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isLight ? 'bg-green-100 text-green-700' : 'bg-green-900 text-green-200'}`}>
                           COMPLETED

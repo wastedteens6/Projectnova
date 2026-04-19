@@ -1,142 +1,96 @@
 import express from "express";
-import fs from "fs";
-import path from "path";
 import { pool } from "../config/database.js";
 import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Get featured/trending projects (public)
+// Helper to normalize a project row to a consistent frontend-friendly format
+const formatProject = (row) => ({
+  ...row,
+  // New schema uses direct array columns; provide both for frontend compat
+  images: row.images || [],
+  videos: row.videos || [],
+  tech_stack: row.technologies || [],        // alias for old frontend refs
+  technologies: row.technologies || [],
+  image_count: (row.images || []).length,
+  has_video: (row.videos || []).length > 0,
+});
+
+// ─── GET /api/projects/featured ───────────────────────────────────────
 router.get("/featured", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        id, slug, title, description, category, 
-        is_published, tech_stack, features, tiers, media, analytics,
+        id, slug, title, description, category,
+        is_published, is_featured, images, videos, technologies, features, tiers, analytics,
         created_at, updated_at
       FROM "Project"
       WHERE is_published = true AND is_featured = true
       ORDER BY created_at DESC
     `);
-
-    // Format for frontend
-    const formattedRows = result.rows.map((row) => {
-      return {
-        ...row,
-        images: row.media?.images || [],
-        videos: row.media?.videos || [],
-        image_count: row.media?.images?.length || 0,
-        has_video: row.media?.videos?.length > 0,
-      };
-    });
-
-    res.json({
-      success: true,
-      data: formattedRows,
-    });
+    res.json({ success: true, data: result.rows.map(formatProject) });
   } catch (error) {
     console.error("Error fetching featured projects:", error);
-    res
-      .status(500)
-      .json({ error: error.message || "Error fetching featured projects" });
+    res.status(500).json({ error: error.message || "Error fetching featured projects" });
   }
 });
 
-// Get all published projects (public listing)
+// ─── GET /api/projects ────────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        id, slug, title, description, category, 
-        is_published, tech_stack, features, tiers, media, analytics,
+        id, slug, title, description, category,
+        is_published, is_featured, images, videos, technologies, features, tiers, analytics,
         created_at, updated_at
       FROM "Project"
       WHERE is_published = true
       ORDER BY created_at DESC
     `);
-
-    // Format for frontend
-    const formattedRows = result.rows.map((row) => {
-      return {
-        ...row,
-        // Include images for card display (with fallback to media.images)
-        images: row.media?.images || [],
-        videos: row.media?.videos || [],
-        image_count: row.media?.images?.length || 0,
-        has_video: row.media?.videos?.length > 0,
-      };
-    });
-
-    res.json({
-      success: true,
-      data: formattedRows,
-    });
+    res.json({ success: true, data: result.rows.map(formatProject) });
   } catch (error) {
     console.error("Error fetching projects:", error);
     res.status(500).json({ error: error.message || "Error fetching projects" });
   }
 });
 
-// Get detailed project by slug
+// ─── GET /api/projects/:slug ──────────────────────────────────────────
 router.get("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-
-    const result = await pool.query('SELECT * FROM "Project" WHERE slug = $1', [
-      slug,
-    ]);
-
+    const result = await pool.query('SELECT * FROM "Project" WHERE slug = $1', [slug]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
-
-    const project = result.rows[0];
-
-    // The new schema already has features, tiers, media in JSONB with per-project pricing!
-    const formattedProject = {
-      ...project,
-      images: project.media?.images || [],
-      videos: project.media?.videos || [],
-    };
-
-    res.json({
-      success: true,
-      data: formattedProject,
-    });
+    res.json({ success: true, data: formatProject(result.rows[0]) });
   } catch (error) {
     console.error("Error fetching project:", error);
     res.status(500).json({ error: error.message || "Error fetching project" });
   }
 });
 
-// Get project access details WITH purchase verification
-// CRITICAL: Verify user has purchased before returning tier content
+// ─── GET /api/projects/:slug/access (requires purchase) ──────────────
 router.get("/:slug/access", verifyToken, async (req, res) => {
   try {
     const { slug } = req.params;
     const userId = req.userId;
 
-    // Get project
     const projectResult = await pool.query(
       'SELECT id, slug, title, tiers FROM "Project" WHERE slug = $1',
       [slug],
     );
-
     if (projectResult.rows.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
-
     const project = projectResult.rows[0];
 
-    // CRITICAL VERIFICATION: Check if user has purchased this project
+    // Check if user has purchased this project
     const purchaseResult = await pool.query(
-      `
-      SELECT t.*, p.tiers
-      FROM "Transaction" t
-      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-      WHERE t.user_id = $1 AND (t.items->>'projectId')::uuid = $2 AND t.type = 'purchase'
-      LIMIT 1
-      `,
+      `SELECT o.*, tier.name as tier_name, tier.level as tier_level, tier.id as tier_id_fk
+       FROM "Order" o
+       LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+       ORDER BY o.created_at DESC LIMIT 1`,
       [userId, project.id],
     );
 
@@ -147,17 +101,17 @@ router.get("/:slug/access", verifyToken, async (req, res) => {
       });
     }
 
-    // User has purchased - return access details
     const purchase = purchaseResult.rows[0];
-    const tierLevel = parseInt(purchase.items?.tier);
-    const tierInfo = project.tiers?.find((t) => t.level === tierLevel);
+    const tierLevel = purchase.tier_level;
+    // Find matching tier in project JSONB tiers for the drive link
+    const tierInfo = project.tiers?.find((t) => Number(t.level) === Number(tierLevel));
 
     res.json({
       success: true,
       access: {
         purchased: true,
         tier: tierLevel,
-        tierName: tierInfo?.name,
+        tierName: purchase.tier_name || tierInfo?.name,
         driveLink: tierInfo?.drive_link,
         features: tierInfo?.features,
         accessGrantedAt: purchase.created_at,

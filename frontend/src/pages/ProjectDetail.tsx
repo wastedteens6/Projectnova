@@ -12,15 +12,20 @@ interface Tier {
 }
 
 interface Project {
-  id: number
+  id: string
   slug: string
   title: string
   description: string
   category: string
   tech_stack: string[]
+  technologies: string[]
   features: string[]
   tiers: Tier[]
-  media: { images: string[]; videos: string[] }
+  // New schema: direct array columns (no .media wrapper)
+  images: string | string[]
+  videos: string | string[]
+  // Legacy compat
+  media?: { images: string[]; videos: string[] }
 }
 
 const getImageUrl = (path?: string) => {
@@ -139,38 +144,51 @@ export default function ProjectDetail() {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]')
     
     if (isUpgrade && upgradeContext) {
-      // For upgrades, add as upgrade cart item
-      cart.push({
+      // For upgrades: remove any existing entry for this project, then add upgrade
+      const filteredCart = cart.filter((item: any) => String(item.id) !== String(project.id))
+      filteredCart.push({
         id: project.id,
         name: project.title,
         tier: tierName,
-        tierLevel: currentTierData?.level, // Store level for matching
-        price:upgradeDifference, // Only charge the difference
-        originalPrice: tierPrice, // Store full price for reference
+        tierLevel: Number(currentTierData?.level),
+        price: upgradeDifference,
+        originalPrice: tierPrice,
         slug: project.slug,
         driveLink: driveLink || '#',
         isUpgrade: true,
         upgradedFrom: upgradeContext.currentTier,
         upgradedFromPrice: upgradeContext.currentPrice
       })
+      localStorage.setItem('cart', JSON.stringify(filteredCart))
       setPurchaseAlert({ show: true, message: `✅ Upgrade added to cart! Total to pay: ₹${upgradeDifference}`, type: 'success' })
     } else {
-      // Regular purchase
-      cart.push({
-        id: project.id,
-        name: project.title,
-        tier: tierName,
-        tierLevel: parseInt(tierLevel), // Store level for matching
-        price: tierPrice,
-        slug: project.slug,
-        driveLink: driveLink || '#'
-      })
-      setPurchaseAlert({ show: true, message: `✅ Added to cart! Continue shopping or go to checkout.`, type: 'success' })
+      // Regular purchase: prevent duplicates — each project appears only once
+      const alreadyInCart = cart.some((item: any) => String(item.id) === String(project.id))
+      if (alreadyInCart) {
+        // Update existing entry with new tier selection instead of adding a second copy
+        const updatedCart = cart.map((item: any) =>
+          String(item.id) === String(project.id)
+            ? { ...item, tier: tierName, tierLevel: parseInt(tierLevel), price: tierPrice, driveLink: driveLink || '#' }
+            : item
+        )
+        localStorage.setItem('cart', JSON.stringify(updatedCart))
+        setPurchaseAlert({ show: true, message: `✅ Cart updated with ${tierName} tier!`, type: 'success' })
+      } else {
+        cart.push({
+          id: project.id,
+          name: project.title,
+          tier: tierName,
+          tierLevel: parseInt(tierLevel),
+          price: tierPrice,
+          slug: project.slug,
+          driveLink: driveLink || '#'
+        })
+        localStorage.setItem('cart', JSON.stringify(cart))
+        setPurchaseAlert({ show: true, message: `✅ Added to cart! Continue shopping or go to checkout.`, type: 'success' })
+      }
     }
 
-    localStorage.setItem('cart', JSON.stringify(cart))
-    localStorage.removeItem('upgradeContext') // Clear upgrade context after adding to cart
-    
+    localStorage.removeItem('upgradeContext')
     setTimeout(() => setPurchaseAlert({ show: false, message: '', type: 'success' }), 3000)
   }
 
@@ -187,9 +205,19 @@ export default function ProjectDetail() {
     </div>
   )
 
-  const currentTierData = project.tiers?.find((t: Tier) => t.level === selectedTier)
-  const hasVideo = project.media?.videos && project.media.videos.length > 0
-  const hasImages = project.media?.images && project.media.images.length > 0
+  const currentTierData = project.tiers?.find((t: Tier) => Number(t.level) === Number(selectedTier))
+
+  // Support both new schema (direct arrays) and legacy (.media wrapper)
+  const rawImages = project.images
+    ? (Array.isArray(project.images) ? project.images : [project.images]).filter(Boolean)
+    : project.media?.images || []
+  const rawVideos = project.videos
+    ? (Array.isArray(project.videos) ? project.videos : [project.videos]).filter(v => v && v.trim() !== '')
+    : project.media?.videos || []
+
+  const hasVideo = rawVideos.length > 0
+  const hasImages = rawImages.length > 0
+  const techList = (project.technologies || project.tech_stack || []).filter(Boolean)
 
   return (
     <div className={`min-h-screen pt-24 pb-20 transition-colors duration-300 ${
@@ -226,14 +254,14 @@ export default function ProjectDetail() {
             }`}>
               {activeTab === 'video' && hasVideo ? (
                 <video
-                  src={getImageUrl(project.media.videos[0])}
+                  src={getImageUrl(rawVideos[0])}
                   className="w-full aspect-video object-cover"
                   controls
                   controlsList="nodownload"
                 />
               ) : hasImages ? (
                 <img
-                  src={getImageUrl(project.media.images[selectedImageIndex])}
+                  src={getImageUrl(rawImages[Math.min(selectedImageIndex, rawImages.length - 1)])}
                   alt={project.title}
                   className="w-full aspect-video object-cover"
                 />
@@ -269,9 +297,9 @@ export default function ProjectDetail() {
             )}
 
             {/* Image Thumbnails */}
-            {activeTab === 'images' && hasImages && (
+            {activeTab === 'images' && hasImages && rawImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-2">
-                {project.media.images.map((_, idx) => (
+                {rawImages.map((imgSrc, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIndex(idx)}
@@ -281,7 +309,7 @@ export default function ProjectDetail() {
                         : isLight ? 'border-slate-200' : 'border-slate-700'
                     }`}
                   >
-                    <img src={getImageUrl(project.media.images[idx])} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                    <img src={getImageUrl(imgSrc)} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -313,13 +341,13 @@ export default function ProjectDetail() {
             )}
 
             {/* Tech Stack */}
-            {project.tech_stack && project.tech_stack.length > 0 && (
+            {techList.length > 0 && (
               <div className="mt-8">
                 <h2 className="text-2xl font-bold mb-4">Technologies Used</h2>
                 <div className="flex flex-wrap gap-2">
-                  {project.tech_stack.map(tech => (
+                  {techList.map((tech, i) => (
                     <span
-                      key={tech}
+                      key={i}
                       className={`px-4 py-2 rounded-full text-sm font-semibold border ${
                         isLight
                           ? 'bg-purple-100 border-purple-200 text-purple-700'
@@ -443,33 +471,42 @@ export default function ProjectDetail() {
               )}
 
               {/* CTA Button */}
-              <button
-                onClick={() => handlePurchase(currentTierData?.level || '', currentTierData?.price || 0, currentTierData?.name || '', currentTierData?.drive_link)}
-                disabled={isUpgrade && upgradePriceLoading}
-                className={`w-full font-bold py-3 rounded-lg transition-all transform hover:scale-105 mb-3 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isUpgrade
-                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white'
-                    : 'bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white'
-                }`}
-              >
-                {isUpgrade
-                  ? upgradePriceLoading
-                    ? 'Calculating price...'
-                    : `Upgrade to ${currentTierData?.name} - ₹${upgradeDifference}`
-                  : 'Add to Cart'
-                }
-              </button>
 
               <button
                 onClick={() => {
-                  if (isUpgrade) {
-                    handlePurchase(currentTierData?.level || '', currentTierData?.price || 0, currentTierData?.name || '', currentTierData?.drive_link)
-                    setTimeout(() => navigate(`/checkout?itemId=${project.id}`), 1000)
-                  } else {
-                    // Add item to cart first, then go to checkout with itemId filter
-                    handlePurchase(currentTierData?.level || '', currentTierData?.price || 0, currentTierData?.name || '', currentTierData?.drive_link)
-                    setTimeout(() => navigate(`/checkout?itemId=${project.id}`), 500)
+                  if (!currentTierData) return
+                  const token = localStorage.getItem('token')
+                  if (!token) {
+                    setPurchaseAlert({ show: true, message: 'Please login to purchase!', type: 'error' })
+                    setTimeout(() => navigate('/auth/login'), 2000)
+                    return
                   }
+                  // Store ONLY this single item in sessionStorage — bypasses cart entirely
+                  const checkoutItem = isUpgrade
+                    ? {
+                        id: project.id,
+                        name: project.title,
+                        slug: project.slug,
+                        tier: currentTierData.name,
+                        tierLevel: Number(currentTierData.level),
+                        price: upgradeDifference,
+                        driveLink: currentTierData.drive_link || '#',
+                        isUpgrade: true,
+                        image: Array.isArray(project.images) && project.images.length > 0 ? project.images[0] : null,
+                      }
+                    : {
+                        id: project.id,
+                        name: project.title,
+                        slug: project.slug,
+                        tier: currentTierData.name,
+                        tierLevel: Number(currentTierData.level),
+                        price: currentTierData.price,
+                        driveLink: currentTierData.drive_link || '#',
+                        isUpgrade: false,
+                        image: Array.isArray(project.images) && project.images.length > 0 ? project.images[0] : null,
+                      }
+                  sessionStorage.setItem('pendingCheckout', JSON.stringify(checkoutItem))
+                  navigate('/checkout')
                 }}
                 className={`w-full py-3 rounded-lg font-bold border-2 transition-all ${
                   isLight

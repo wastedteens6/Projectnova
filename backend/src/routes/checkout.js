@@ -5,29 +5,22 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Determine payment mode based on environment variables
+// Determine payment mode
 const USE_MOCK =
-  process.env.USE_MOCK_PAYMENT === "true" || !process.env.RAZORPAY_KEY_ID;
+  process.env.USE_MOCK_PAYMENT === "true" ||
+  !process.env.RAZORPAY_KEY_ID ||
+  process.env.RAZORPAY_KEY_ID === "rzp_test_placeholder";
+
 console.log(
   `\n🎭 Payment Mode: ${USE_MOCK ? "MOCK MODE (Development)" : "LIVE MODE (Razorpay)"}\n`,
 );
 
-// Initialize Razorpay only if not in mock mode
 let razorpay = null;
 if (!USE_MOCK) {
   try {
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!keyId || !keySecret) {
-      throw new Error(
-        "Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET - switching to MOCK mode",
-      );
-    }
-
     razorpay = new Razorpay({
-      key_id: keyId,
-      key_secret: keySecret,
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
     console.log("✅ Razorpay initialized successfully");
   } catch (err) {
@@ -35,6 +28,7 @@ if (!USE_MOCK) {
   }
 }
 
+// ─── POST /api/checkout/create-order ─────────────────────────────────
 router.post("/create-order", verifyToken, async (req, res) => {
   try {
     const { amount, projectIds, phone } = req.body;
@@ -43,7 +37,6 @@ router.post("/create-order", verifyToken, async (req, res) => {
     console.log("📋 CREATE ORDER REQUEST:");
     console.log("  - User ID:", userId);
     console.log("  - Amount (paise):", amount);
-    console.log("  - Amount (rupees):", amount / 100);
     console.log("  - Projects:", projectIds);
     console.log("  - Phone:", phone);
 
@@ -75,32 +68,51 @@ router.post("/create-order", verifyToken, async (req, res) => {
   }
 });
 
+// ─── POST /api/checkout/verify-payment ───────────────────────────────
+// Records purchase in the new Order table
 router.post("/verify-payment", verifyToken, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { orderId, projectIds, tier, price } = req.body;
+    const { orderId, projectIds, tier, tierLevel, price } = req.body;
     const userId = req.userId;
 
-    // SECURITY: Extract user info from verified JWT, never from request body
     console.log("✅ Verifying payment for authenticated user:", userId);
 
     await client.query("BEGIN");
 
-    // Record Transaction using AUTHENTICATED user ID (from JWT)
     for (const projectId of projectIds) {
+      // Tier table is global (3 rows: level 1,2,3) — look up by level, not name+project
+      // The drive_link per project is stored in Project.tiers JSONB, not in Tier table
+      let tierId = null;
+      const targetLevel = parseInt(tierLevel, 10) || 1;
+      const tierLookup = await client.query(
+        `SELECT id FROM "Tier" WHERE level = $1 LIMIT 1`,
+        [targetLevel]
+      );
+      if (tierLookup.rows.length > 0) {
+        tierId = tierLookup.rows[0].id;
+      }
+
       await client.query(
         `
-        INSERT INTO "Transaction" (
-          user_id, type, status, amount_in_paise, items, payment_info
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-      `,
+        INSERT INTO "Order" (
+          user_id, project_id, tier_id, type, status, 
+          amount_in_paise, order_id, payment_info
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `,
         [
-          userId, // CRITICAL: Use verified user from JWT
+          userId,
+          projectId,
+          tierId,
           "purchase",
           "completed",
           Math.round(price * 100),
-          JSON.stringify({ projectId, tier }),
-          JSON.stringify({ orderId, provider: USE_MOCK ? "mock" : "razorpay" }),
+          orderId,
+          JSON.stringify({
+            orderId,
+            tier,
+            provider: USE_MOCK ? "mock" : "razorpay",
+          }),
         ],
       );
     }

@@ -4,7 +4,7 @@ export const runMigrations = async () => {
   try {
     console.log("🔄 Running database migrations...");
 
-    // Check if is_featured column exists
+    // Check if is_featured column exists on Project
     const checkColumn = await pool.query(`
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'Project' AND column_name = 'is_featured'
@@ -21,7 +21,7 @@ export const runMigrations = async () => {
       console.log("✅ is_featured column already exists");
     }
 
-    // Ensure index exists for faster queries
+    // Ensure index exists for faster featured project queries
     const checkIndex = await pool.query(`
       SELECT indexname FROM pg_indexes 
       WHERE tablename = 'Project' AND indexname = 'idx_project_featured_published'
@@ -39,46 +39,21 @@ export const runMigrations = async () => {
       console.log("✅ Featured projects index already exists");
     }
 
-    // Ensure Transaction.updated_at exists (needed for tier upgrades)
-    const checkUpdatedAt = await pool.query(`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'Transaction' AND column_name = 'updated_at'
+    // Verify 6-table schema is in place
+    const tablesResult = await pool.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
     `);
-    if (checkUpdatedAt.rows.length === 0) {
-      console.log("📝 Adding updated_at column to Transaction table...");
-      await pool.query(`
-        ALTER TABLE "Transaction"
-        ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW()
-      `);
-      console.log("✅ updated_at column added to Transaction");
-    } else {
-      console.log("✅ Transaction.updated_at already exists");
-    }
+    const tableNames = tablesResult.rows.map((r) => r.table_name);
+    const required = ["User", "Project", "Tier", "Order", "Upgrade", "Request"];
+    const missing = required.filter((t) => !tableNames.includes(t));
 
-    // Ensure 'upgrade' is a valid type in Transaction (handles both enum and varchar)
-    try {
-      await pool.query(`
-        DO $$
-        BEGIN
-          IF EXISTS (
-            SELECT 1 FROM pg_type WHERE typname = 'transaction_type'
-          ) THEN
-            -- It's an enum — add 'upgrade' if missing
-            IF NOT EXISTS (
-              SELECT 1 FROM pg_enum
-              WHERE enumtypid = 'transaction_type'::regtype
-              AND enumlabel = 'upgrade'
-            ) THEN
-              ALTER TYPE transaction_type ADD VALUE 'upgrade';
-            END IF;
-          END IF;
-        END
-        $$;
-      `);
-      console.log("✅ Transaction type 'upgrade' ensured");
-    } catch (typeErr) {
-      // Ignore — column is likely a plain VARCHAR, upgrade value will work fine
-      console.log("ℹ️  Transaction type is VARCHAR, 'upgrade' values allowed");
+    if (missing.length > 0) {
+      console.warn("⚠️  Missing tables:", missing.join(", "));
+      console.warn("   Run: npm run db:init to initialize the database");
+    } else {
+      console.log("✅ All 6 core tables verified:", required.join(", "));
     }
 
     console.log("✅ All migrations completed successfully\n");

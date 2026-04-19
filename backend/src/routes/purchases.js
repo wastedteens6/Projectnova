@@ -4,42 +4,38 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Get user's purchases
+// ─── GET /api/purchases/my-purchases ─────────────────────────────────
 router.get("/my-purchases", verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
       `
       SELECT 
-        t.id as transaction_id,
-        t.items->>'projectId' as project_id,
-        t.items->>'tier' as tier_level,
-        t.amount_in_paise as price_in_paise,
-        t.payment_info->>'orderId' as order_id,
-        t.created_at,
+        o.id as transaction_id,
+        o.project_id,
+        tier.name as tier_level,
+        tier.level as tier_numeric_level,
+        o.amount_in_paise as price_in_paise,
+        o.order_id,
+        o.created_at,
         p.title as project_title,
         p.slug,
         p.tiers
-      FROM "Transaction" t
-      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-      WHERE t.user_id = $1 AND t.type = 'purchase'
-      ORDER BY t.created_at DESC
+      FROM "Order" o
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status = 'completed'
+      ORDER BY o.created_at DESC
     `,
       [req.userId],
     );
 
     res.json({
       success: true,
-      purchases: result.rows.map((row) => {
-        // tier_level contains the tier NAME (e.g., "Pro", "Starter")
-        const tierName = row.tier_level;
-        const tierInfo = row.tiers?.find((t) => t.name === tierName);
-
-        return {
-          ...row,
-          tier_name: tierName,
-          tier_level: tierInfo?.level || 1, // Add level for upgrade logic
-        };
-      }),
+      purchases: result.rows.map((row) => ({
+        ...row,
+        tier_name: row.tier_level,
+        tier_level: row.tier_numeric_level || 1,
+      })),
     });
   } catch (err) {
     console.error("Error fetching purchases:", err);
@@ -47,74 +43,34 @@ router.get("/my-purchases", verifyToken, async (req, res) => {
   }
 });
 
-// Record a new purchase (Usually called by verification logic, but keep as helper)
-router.post("/record-purchase", async (req, res) => {
-  try {
-    const { projectId, tier, price, orderId, userEmail } = req.body;
-
-    // Get User
-    let userRes = await pool.query('SELECT id FROM "User" WHERE email = $1', [
-      userEmail,
-    ]);
-    if (userRes.rows.length === 0)
-      return res.status(404).json({ error: "User not found" });
-    const userId = userRes.rows[0].id;
-
-    const result = await pool.query(
-      `
-      INSERT INTO "Transaction" (
-        user_id, type, status, amount_in_paise, items, payment_info
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `,
-      [
-        userId,
-        "purchase",
-        "completed",
-        Math.round(price * 100),
-        JSON.stringify({ projectId, tier }),
-        JSON.stringify({ orderId }),
-      ],
-    );
-
-    res.status(201).json({ success: true, purchase: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to record" });
-  }
-});
-
-// Check if user has purchased a project
-// CRITICAL: ONLY check authenticated user's purchases
+// ─── GET /api/purchases/check-purchase/:projectId ────────────────────
 router.get("/check-purchase/:projectId", verifyToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    // SECURITY: Use authenticated user ID from JWT, never trust query params
     const userId = req.userId;
 
     const result = await pool.query(
       `
-      SELECT t.*, p.tiers
-      FROM "Transaction" t
-      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-      WHERE t.user_id = $1 AND t.items->>'projectId' = $2 AND t.type = 'purchase'
+      SELECT o.*, tier.name as tier_name, tier.level as tier_level, p.tiers
+      FROM "Order" o
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+      ORDER BY o.created_at DESC
+      LIMIT 1
     `,
       [userId, projectId],
     );
 
     if (result.rows.length === 0) return res.json({ purchased: false });
 
-    const trans = result.rows[0];
-    // trans.items.tier contains the tier NAME (e.g., "Pro", "Starter")
-    const tierName = trans.items?.tier;
-    const tierInfo = trans.tiers?.find((t) => t.name === tierName);
-    const tierLevel = tierInfo?.level || 1;
-
+    const order = result.rows[0];
     res.json({
       purchased: true,
-      tier: tierLevel,
-      tierName: tierName || "Unknown",
-      price: trans.amount_in_paise,
-      orderId: trans.payment_info?.orderId,
+      tier: order.tier_level || 1,
+      tierName: order.tier_name || "Unknown",
+      price: order.amount_in_paise,
+      orderId: order.order_id,
     });
   } catch (err) {
     console.error("Check purchase error:", err);
@@ -122,176 +78,144 @@ router.get("/check-purchase/:projectId", verifyToken, async (req, res) => {
   }
 });
 
-// Get user's purchases by email
-// CRITICAL: Verify user can only fetch their own data
+// ─── GET /api/purchases/user ─────────────────────────────────────────
 router.get("/user", verifyToken, async (req, res) => {
   try {
     const { email } = req.query;
+    let userId = req.userId;
 
-    if (!email) {
-      // If no email provided, return authenticated user's purchases
-      const userId = req.userId;
-
-      const result = await pool.query(
-        `
-        SELECT 
-          t.id as transaction_id,
-          t.items->>'projectId' as project_id,
-          t.items->>'tier' as tier_level,
-          t.amount_in_paise as price_in_paise,
-          t.payment_info->>'orderId' as order_id,
-          t.created_at,
-          p.title as project_title,
-          p.slug,
-          p.tiers,
-          p.id
-        FROM "Transaction" t
-        LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-        WHERE t.user_id = $1 AND t.type = 'purchase'
-        ORDER BY t.created_at DESC
-      `,
-        [userId],
+    if (email) {
+      // Verify email belongs to authenticated user (or admin)
+      const userRes = await pool.query(
+        'SELECT id, email, role FROM "User" WHERE email = $1',
+        [email],
       );
-
-      const data = result.rows.map((row) => {
-        const tierName = row.tier_level; // tier_level contains the tier NAME
-        const tierInfo = row.tiers?.find((t) => t.name === tierName);
-        return {
-          id: row.id || row.transaction_id,
-          name: row.project_title || "Project",
-          title: row.project_title,
-          slug: row.slug,
-          projectId: row.id, // UUID of the project
-          tier: tierName,
-          currentTierLevel: tierInfo?.level || 1, // Numeric tier level
-          tiers: row.tiers, // Full tiers array for upgrade options
-          price: row.price_in_paise,
-          date: new Date(row.created_at).toLocaleDateString(),
-          orderId: row.order_id,
-        };
-      });
-
-      return res.json({ success: true, data });
+      if (userRes.rows.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+      const targetUser = userRes.rows[0];
+      if (req.userId !== targetUser.id && req.user?.role !== "admin") {
+        return res.status(403).json({
+          error: "Forbidden - You can only view your own purchases",
+          code: "USER_MISMATCH",
+        });
+      }
+      userId = targetUser.id;
     }
-
-    // CRITICAL: If email is provided, verify it matches authenticated user
-    // Users CANNOT query other users' data
-    const userRes = await pool.query(
-      'SELECT id, email, role FROM "User" WHERE email = $1',
-      [email],
-    );
-
-    if (userRes.rows.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
-
-    const targetUser = userRes.rows[0];
-
-    // CRITICAL: Enforce user ownership - only admins can access other users' data
-    if (req.userId !== targetUser.id && req.user.role !== "admin") {
-      return res.status(403).json({
-        error: "Forbidden - You can only view your own purchases",
-        code: "USER_MISMATCH",
-      });
-    }
-
-    const userId = targetUser.id;
 
     const result = await pool.query(
       `
       SELECT 
-        t.id as transaction_id,
-        t.items->>'projectId' as project_id,
-        t.items->>'tier' as tier_level,
-        t.amount_in_paise as price_in_paise,
-        t.payment_info->>'orderId' as order_id,
-        t.created_at,
+        o.id as transaction_id,
+        o.project_id,
+        tier.name as tier_level,
+        tier.level as tier_numeric_level,
+        o.amount_in_paise as price_in_paise,
+        o.order_id,
+        o.created_at,
         p.title as project_title,
         p.slug,
         p.tiers,
-        p.id
-      FROM "Transaction" t
-      LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-      WHERE t.user_id = $1 AND t.type = 'purchase'
-      ORDER BY t.created_at DESC
+        p.images,
+        p.id as project_uuid
+      FROM "Order" o
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status = 'completed'
+      ORDER BY o.created_at DESC
     `,
       [userId],
     );
 
     const data = result.rows.map((row) => {
-      const tierName = row.tier_level; // tier_level contains the tier NAME
-      const tierInfo = row.tiers?.find((t) => t.name === tierName);
+      // Extract drive_link from Project.tiers JSONB array for the purchased tier level
+      let tiersArr = []
+      if (Array.isArray(row.tiers)) {
+        tiersArr = row.tiers
+      } else if (typeof row.tiers === 'string') {
+        try { tiersArr = JSON.parse(row.tiers) } catch (e) {}
+      }
+
+      const tierLevel = row.tier_numeric_level || 1
+      const matchedTier = tiersArr.find(t => Number(t.level) === Number(tierLevel))
+      const driveLink = matchedTier?.drive_link || null
+      const firstImage = Array.isArray(row.images) && row.images.length > 0 ? row.images[0] : null
+
       return {
-        id: row.id || row.transaction_id,
+        id: row.transaction_id,
         name: row.project_title || "Project",
         title: row.project_title,
         slug: row.slug,
-        projectId: row.id, // UUID of the project
-        tier: tierName,
-        currentTierLevel: tierInfo?.level || 1, // Numeric tier level
-        tiers: row.tiers, // Full tiers array for upgrade options
+        images: row.images || [],
+        image: firstImage,
+        projectId: row.project_uuid,
+        tier: row.tier_level,
+        currentTierLevel: tierLevel,
+        driveLink,
+        tiers: row.tiers,
         price: row.price_in_paise,
         date: new Date(row.created_at).toLocaleDateString(),
         orderId: row.order_id,
-      };
-    });
+      }
+    })
 
-    res.json({ success: true, data });
+    return res.json({ success: true, data });
   } catch (err) {
     console.error("Error fetching user purchases:", err);
     res.status(500).json({ error: "Failed to fetch purchases" });
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/purchases/upgrade-tier
-// Calculate upgrade price (Step 1 of 2 — preview only, no charge here)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── POST /api/purchases/upgrade-tier/preview ────────────────────────
 router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
   try {
     const { project_id, target_tier_level } = req.body;
-    const userId = req.userId; // SECURITY: Always from JWT, never from body
+    const userId = req.userId;
 
     if (!project_id || target_tier_level === undefined) {
-      return res.status(400).json({ error: "Missing project_id or target_tier_level" });
+      return res
+        .status(400)
+        .json({ error: "Missing project_id or target_tier_level" });
     }
 
-    // STEP 1 — Fetch user's latest purchase for this project
-    const purchaseResult = await pool.query(
-      `SELECT t.id, t.items, t.amount_in_paise, p.tiers
-       FROM "Transaction" t
-       LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-       WHERE t.user_id = $1
-         AND (t.items->>'projectId') = $2
-         AND t.type = 'purchase'
-       ORDER BY t.created_at DESC
-       LIMIT 1`,
-      [userId, project_id]
-    );
-
-    // STEP 2 — Get project tiers to look up prices
+    // Get project tiers
     const projectResult = await pool.query(
       `SELECT id, tiers FROM "Project" WHERE id = $1`,
-      [project_id]
+      [project_id],
     );
-
     if (projectResult.rows.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
-
     const { tiers } = projectResult.rows[0];
-    // Use Number() to prevent string/int comparison failures
-    const targetTier = tiers?.find((t) => Number(t.level) === Number(target_tier_level));
+    
+    let tiersArr = []
+    if (Array.isArray(tiers)) {
+      tiersArr = tiers
+    } else if (typeof tiers === 'string') {
+      try { tiersArr = JSON.parse(tiers) } catch (e) {}
+    }
 
+    const targetTier = tiersArr?.find(
+      (t) => Number(t.level) === Number(target_tier_level),
+    );
     if (!targetTier) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Target tier not found",
         target_tier_level,
-        available_levels: tiers?.map(t => t.level)
+        available_levels: tiersArr?.map((t) => t.level),
       });
     }
 
-    // If no existing purchase → charge full price (first-time buy)
+    // Get user's latest purchase for this project
+    const purchaseResult = await pool.query(
+      `SELECT o.id, o.amount_in_paise, tier.name as tier_name, tier.level as tier_level
+       FROM "Order" o
+       LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+       ORDER BY o.created_at DESC LIMIT 1`,
+      [userId, project_id],
+    );
+
     if (purchaseResult.rows.length === 0) {
       return res.json({
         isFirstBuy: true,
@@ -303,13 +227,9 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
     }
 
     const purchase = purchaseResult.rows[0];
-    const currentTierName = purchase.items?.tier;
-    const currentTier = tiers?.find((t) => t.name === currentTierName);
-    // Be robust with finding current level
-    const currentTierLevel = currentTier ? Number(currentTier.level) : 1;
+    const currentTierLevel = Number(purchase.tier_level) || 1;
     const amountPaidRupees = Number(purchase.amount_in_paise) / 100;
 
-    // STEP 3 — Prevent downgrade or same-tier
     if (Number(target_tier_level) <= currentTierLevel) {
       return res.status(400).json({
         error: "Invalid upgrade: target tier must be higher than current tier",
@@ -318,11 +238,11 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
       });
     }
 
-    // STEP 4 — Calculate upgrade price = target price − amount already paid
     const upgrade_price = Number(targetTier.price) - amountPaidRupees;
-
     if (upgrade_price <= 0) {
-      return res.status(400).json({ error: "Invalid upgrade or already owned at this level" });
+      return res
+        .status(400)
+        .json({ error: "Invalid upgrade or already owned at this level" });
     }
 
     return res.json({
@@ -331,7 +251,7 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
       target_tier_level,
       target_tier_name: targetTier.name,
       current_tier_level: currentTierLevel,
-      current_tier_name: currentTierName,
+      current_tier_name: purchase.tier_name,
       amount_paid: amountPaidRupees,
       full_price: targetTier.price,
       transaction_id: purchase.id,
@@ -342,16 +262,12 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/purchases/upgrade-tier/confirm
-// Called by verify-payment for upgrades — updates existing Transaction record
-// SECURITY: user_id always from JWT; idempotent via transaction_id check
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── POST /api/purchases/upgrade-tier/confirm ────────────────────────
 router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
   const client = await pool.connect();
   try {
     const { project_id, target_tier_level, order_id } = req.body;
-    const userId = req.userId; // SECURITY: from JWT only
+    const userId = req.userId;
 
     if (!project_id || target_tier_level === undefined || !order_id) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -359,68 +275,66 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Idempotency — if this order_id is already recorded, return success
+    // Idempotency — if this order_id already exists, return success
     const existingUpgrade = await client.query(
-      `SELECT id FROM "Transaction"
-       WHERE user_id = $1
-         AND payment_info->>'orderId' = $2
-         AND type = 'upgrade'
-       LIMIT 1`,
-      [userId, order_id]
+      `SELECT id FROM "Order" WHERE user_id = $1 AND order_id = $2 AND type = 'upgrade' LIMIT 1`,
+      [userId, order_id],
     );
     if (existingUpgrade.rows.length > 0) {
       await client.query("COMMIT");
-      return res.json({ success: true, message: "Upgrade already recorded (idempotent)" });
+      return res.json({
+        success: true,
+        message: "Upgrade already recorded (idempotent)",
+      });
     }
 
-    // Fetch latest purchase
-    const purchaseResult = await client.query(
-      `SELECT t.id, t.items, t.amount_in_paise, p.tiers
-       FROM "Transaction" t
-       LEFT JOIN "Project" p ON (t.items->>'projectId')::uuid = p.id
-       WHERE t.user_id = $1
-         AND (t.items->>'projectId') = $2
-         AND t.type = 'purchase'
-       ORDER BY t.created_at DESC
-       LIMIT 1`,
-      [userId, project_id]
-    );
-
-    // Fetch project tiers
+    // Get project tiers and target tier
     const projectResult = await client.query(
       `SELECT id, tiers FROM "Project" WHERE id = $1`,
-      [project_id]
+      [project_id],
     );
-
     if (projectResult.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Project not found" });
     }
-
     const { tiers } = projectResult.rows[0];
-    const targetTier = tiers?.find((t) => t.level === target_tier_level);
+    let tiersArr = []
+    if (Array.isArray(tiers)) {
+      tiersArr = tiers
+    } else if (typeof tiers === 'string') {
+      try { tiersArr = JSON.parse(tiers) } catch (e) {}
+    }
 
+    const targetTier = tiersArr?.find((t) => Number(t.level) === Number(target_tier_level));
     if (!targetTier) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Target tier not found" });
     }
 
+    // Get latest purchase
+    const purchaseResult = await client.query(
+      `SELECT o.id, o.amount_in_paise, o.tier_id, tier.level as tier_level
+       FROM "Order" o LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+       ORDER BY o.created_at DESC LIMIT 1`,
+      [userId, project_id],
+    );
+
     let upgradePricePaise;
     let newTotalPaise;
 
     if (purchaseResult.rows.length === 0) {
-      // First-time buy — charge full price
       upgradePricePaise = Math.round(targetTier.price * 100);
       newTotalPaise = upgradePricePaise;
     } else {
       const purchase = purchaseResult.rows[0];
-      const currentTierName = purchase.items?.tier;
-      const currentTier = tiers?.find((t) => t.name === currentTierName);
-      const currentTierLevel = currentTier?.level ?? 1;
+      const currentTierLevel = purchase.tier_level ?? 1;
 
       if (target_tier_level <= currentTierLevel) {
         await client.query("ROLLBACK");
-        return res.status(400).json({ error: "Target tier must be higher than current tier" });
+        return res
+          .status(400)
+          .json({ error: "Target tier must be higher than current tier" });
       }
 
       const amountPaidRupees = purchase.amount_in_paise / 100;
@@ -432,35 +346,50 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
       }
 
       upgradePricePaise = Math.round(upgradePrice * 100);
-      newTotalPaise = Math.round(targetTier.price * 100); // Total = full target tier price
+      newTotalPaise = Math.round(targetTier.price * 100);
 
-      // Update the existing purchase to the new tier and cumulative total
+      // Update existing purchase to new tier
+      const newTierLookup = await client.query(
+        `SELECT id FROM "Tier" WHERE level = $1 LIMIT 1`,
+        [Number(target_tier_level)],
+      );
+      const newTierId = newTierLookup.rows[0]?.id || purchase.tier_id;
+
       await client.query(
-        `UPDATE "Transaction"
-         SET items = items || jsonb_build_object('tier', $1::text),
-             amount_in_paise = $2,
-             updated_at = NOW()
-         WHERE id = $3 AND user_id = $4`,
-        [targetTier.name, newTotalPaise, purchase.id, userId]
+        `UPDATE "Order" SET tier_id = $1, amount_in_paise = $2, updated_at = NOW() WHERE id = $3 AND user_id = $4`,
+        [newTierId, newTotalPaise, purchase.id, userId],
       );
     }
 
-    // Record upgrade transaction (audit trail)
+    // Look up target tier_id
+    const targetTierLookup = await client.query(
+      `SELECT id FROM "Tier" WHERE level = $1 LIMIT 1`,
+      [Number(target_tier_level)],
+    );
+    const targetTierId = targetTierLookup.rows[0]?.id || null;
+
+    // Record upgrade order (audit trail)
     await client.query(
-      `INSERT INTO "Transaction" (user_id, type, status, amount_in_paise, items, payment_info)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO "Order" (user_id, project_id, tier_id, type, status, amount_in_paise, order_id, payment_info)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         userId,
+        project_id,
+        targetTierId,
         "upgrade",
         "completed",
         upgradePricePaise,
-        JSON.stringify({ projectId: project_id, tier: targetTier.name }),
-        JSON.stringify({ orderId: order_id }),
-      ]
+        order_id,
+        JSON.stringify({ orderId: order_id, tier: targetTier.name }),
+      ],
     );
 
     await client.query("COMMIT");
-    res.json({ success: true, message: "Upgrade recorded successfully", new_tier: targetTier.name });
+    res.json({
+      success: true,
+      message: "Upgrade recorded successfully",
+      new_tier: targetTier.name,
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Error confirming upgrade:", err);
@@ -470,5 +399,43 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
   }
 });
 
-export default router;
+// ─── POST /api/purchases/record-purchase ─────────────────────────────
+router.post("/record-purchase", async (req, res) => {
+  try {
+    const { projectId, tier, price, orderId, userEmail } = req.body;
 
+    const userRes = await pool.query(
+      'SELECT id FROM "User" WHERE email = $1',
+      [userEmail],
+    );
+    if (userRes.rows.length === 0)
+      return res.status(404).json({ error: "User not found" });
+    const userId = userRes.rows[0].id;
+
+    const tierLookup = await pool.query(
+      `SELECT id FROM "Tier" WHERE name = $1 LIMIT 1`,
+      [tier],
+    );
+    const tierId = tierLookup.rows[0]?.id || null;
+
+    const result = await pool.query(
+      `INSERT INTO "Order" (user_id, project_id, tier_id, type, status, amount_in_paise, order_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        userId,
+        projectId,
+        tierId,
+        "purchase",
+        "completed",
+        Math.round(price * 100),
+        orderId,
+      ],
+    );
+
+    res.status(201).json({ success: true, purchase: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to record" });
+  }
+});
+
+export default router;

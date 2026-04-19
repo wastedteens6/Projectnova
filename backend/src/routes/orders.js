@@ -4,32 +4,32 @@ import { verifyToken, verifyAdminToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Get all orders (Admin only)
-// CRITICAL: Use centralized verifyAdminToken middleware
+// ─── Admin: Get all orders ───────────────────────────────────────────
 router.get("/", verifyAdminToken, async (req, res) => {
   try {
-    // Fetch all transactions (purchases) with user and project details
     const result = await pool.query(`
       SELECT 
-        t.id as transaction_id,
-        t.user_id,
+        o.id as order_id,
+        o.user_id,
         u.email,
         u.name,
-        t.items->>'projectId' as project_id,
-        pr.title as project_title,
-        t.items->>'tier' as tier_level,
-        t.amount_in_paise as amount_in_paise,
-        (t.amount_in_paise / 100.0) as amount,
-        t.payment_info->>'orderId' as order_id,
-        t.status,
-        t.type,
-        t.created_at,
-        t.updated_at
-      FROM "Transaction" t
-      LEFT JOIN "User" u ON t.user_id = u.id
-      LEFT JOIN "Project" pr ON (t.items->>'projectId')::uuid = pr.id
-      WHERE t.type = 'purchase'
-      ORDER BY t.created_at DESC
+        o.project_id,
+        p.title as project_title,
+        o.tier_id,
+        t.name as tier_name,
+        o.amount_in_paise,
+        (o.amount_in_paise / 100.0) as amount,
+        o.order_id as razorpay_order_id,
+        o.status,
+        o.type,
+        o.created_at,
+        o.updated_at
+      FROM "Order" o
+      LEFT JOIN "User" u ON o.user_id = u.id
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" t ON o.tier_id = t.id
+      WHERE o.type = 'purchase'
+      ORDER BY o.created_at DESC
     `);
 
     res.json({ success: true, data: result.rows });
@@ -39,25 +39,30 @@ router.get("/", verifyAdminToken, async (req, res) => {
   }
 });
 
-// Get user's orders
+// ─── User: Get my orders ─────────────────────────────────────────────
 router.get("/my-orders", verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
       `
       SELECT 
-        t.id as transaction_id,
-        t.items->>'projectId' as project_id,
-        pr.title as project_title,
-        t.items->>'tier' as tier_level,
-        t.amount_in_paise as amount_in_paise,
-        (t.amount_in_paise / 100.0) as amount,
-        t.payment_info->>'orderId' as order_id,
-        t.status,
-        t.created_at
-      FROM "Transaction" t
-      LEFT JOIN "Project" pr ON (t.items->>'projectId')::uuid = pr.id
-      WHERE t.user_id = $1 AND t.type = 'purchase'
-      ORDER BY t.created_at DESC
+        o.id as order_id,
+        o.project_id,
+        p.title as project_title,
+        p.slug,
+        p.tiers,
+        o.tier_id,
+        tier.name as tier_name,
+        tier.level as tier_level,
+        o.amount_in_paise,
+        (o.amount_in_paise / 100.0) as amount,
+        o.order_id as razorpay_order_id,
+        o.status,
+        o.created_at
+      FROM "Order" o
+      LEFT JOIN "Project" p ON o.project_id = p.id
+      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status = 'completed'
+      ORDER BY o.created_at DESC
     `,
       [req.userId],
     );
