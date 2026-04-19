@@ -26,7 +26,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
+    <nav className={`pointer-events-auto fixed top-0 w-full z-50 transition-all duration-300 ${
       isLight 
         ? 'bg-white/90 backdrop-blur border-b border-purple-200/50 shadow-md shadow-purple-200/20' 
         : 'bg-slate-950/95 backdrop-blur border-b border-slate-800'

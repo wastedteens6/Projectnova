@@ -156,8 +156,8 @@ export default function Receipt() {
 
   return (
     <div
-      className={`min-h-screen py-8 px-4 ${
-        isDark ? "bg-gray-900" : "bg-gradient-to-br from-gray-50 to-gray-100"
+      className={`min-h-screen py-8 px-4 w-full ${
+        isDark ? "text-gray-100 bg-transparent" : "text-gray-900 bg-transparent"
       }`}
     >
       {/* Header with Navigation */}

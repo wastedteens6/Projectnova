@@ -229,7 +229,7 @@ Thank you for your purchase!
   }
 
   if (loading) return (
-    <div className={`min-h-screen pt-24 flex items-center justify-center ${isLight ? 'bg-white' : 'bg-slate-950'}`}>
+    <div className={`min-h-screen pt-24 flex items-center justify-center bg-transparent`}>
       <div className="flex flex-col items-center gap-3">
         <div className={`w-7 h-7 border-2 border-t-transparent rounded-full animate-spin ${
           isLight ? 'border-indigo-600' : 'border-indigo-400'
@@ -280,7 +280,7 @@ Thank you for your purchase!
   })
 
   return (
-    <div className={`min-h-screen pt-24 pb-16 ${isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
+    <div className={`min-h-screen pt-24 pb-16 w-full ${isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'}`}>
 
       {/* Alert */}
       {purchaseAlert.show && (

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { ThemeProvider } from './context/ThemeContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
+import { BackgroundContainer } from './components/ui/BoxesBackground'
 import Home from './pages/Home'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
@@ -31,8 +32,8 @@ function AppContent() {
   const isAdminRoute = location.pathname.startsWith('/admin/')
   
   return (
-    <>
-      {!isAdminRoute && <Navbar />}
+    <BackgroundContainer>
+      {!isAdminRoute && <Navbar className="pointer-events-auto" />}
       <main className="flex-grow flex flex-col">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -61,8 +62,8 @@ function AppContent() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <Footer />
-    </>
+      <Footer className="pointer-events-auto" />
+    </BackgroundContainer>
   )
 }
 

@@ -285,8 +285,8 @@ export default function Checkout() {
   const item = cartItems[0]
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 w-full ${
+      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       <div className="container max-w-3xl mx-auto">
 

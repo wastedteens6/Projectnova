@@ -33,18 +33,16 @@ export default function Home() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+    <div className={`min-h-screen transition-colors duration-300 w-full ${
+      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       {/* Hero Section */}
-      <section className={`relative overflow-hidden pt-32 pb-20 px-4 transition-all duration-300 ${
-        isLight ? 'bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100' : ''
-      }`}>
+      <section className={`relative overflow-hidden pt-32 pb-20 px-4 transition-all duration-300 bg-transparent`}>
         {/* Background gradient animation */}
         <div className={`absolute inset-0 transition-all duration-300 ${
           isLight
-            ? 'bg-gradient-to-br from-purple-100/30 via-slate-50 to-cyan-100/30'
-            : 'bg-gradient-to-br from-purple-900/20 via-slate-950 to-cyan-900/20'
+            ? 'bg-gradient-to-br from-purple-100/10 via-transparent to-cyan-100/10'
+            : 'bg-gradient-to-br from-purple-900/10 via-transparent to-cyan-900/10'
         }`}></div>
         
         {/* Animated background elements */}
@@ -183,9 +181,7 @@ export default function Home() {
       </section>
 
       {/* Technology Cards Section */}
-      <section className={`py-20 px-4 transition-colors duration-300 ${
-        isLight ? 'bg-slate-50' : 'bg-slate-900/50'
-      }`}>
+      <section className={`py-20 px-4 transition-colors duration-300 bg-transparent`}>
         <div className="container max-w-6xl mx-auto">
           {/* Section heading */}
           <div className="text-center mb-16">
@@ -342,9 +338,7 @@ export default function Home() {
       <FeaturedProjects />
 
       {/* Custom Projects Section */}
-      <section className={`py-20 px-4 transition-colors duration-300 ${
-        isLight ? 'bg-white' : 'bg-slate-950'
-      }`}>
+      <section className={`py-20 px-4 transition-colors duration-300 bg-transparent`}>
         <div className="container max-w-6xl mx-auto">
           <div className={`rounded-3xl border-2 backdrop-blur-lg p-16 md:p-20 text-center transition-all duration-300 ${
             isLight

@@ -90,8 +90,8 @@ export default function Register() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full ${
+      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       {/* Animated Background Blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

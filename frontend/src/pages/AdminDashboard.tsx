@@ -93,9 +93,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className={`min-h-screen transition-all duration-300 ${isLight ? 'bg-slate-50' : 'bg-slate-950'}`}>
+    <div className={`min-h-screen transition-all duration-300 w-full ${isLight ? 'bg-transparent text-slate-900' : 'bg-transparent text-white'}`}>
       {/* Admin Header */}
-      <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
+      <div className={`border-b backdrop-blur-md transition-all duration-300 ${isLight ? 'bg-white/50 border-slate-200' : 'bg-slate-900/50 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <div>
             <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Admin Dashboard</h1>

@@ -19,7 +19,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className={`border-t ${
+    <footer className={`pointer-events-auto border-t ${
       isLight ? 'bg-[#fafafa] border-slate-100' : 'bg-[#0a0a0f] border-white/[0.06]'
     }`}>
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-12">

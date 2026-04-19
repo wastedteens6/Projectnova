@@ -40,23 +40,11 @@ export default function Login() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full ${
+      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
-      {/* Animated Background Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-20 -left-32 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse transition-all duration-300 ${
-          isLight ? 'bg-purple-400' : 'bg-purple-600'
-        }`}></div>
-        <div className={`absolute -bottom-32 right-10 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse transition-all duration-300 ${
-          isLight ? 'bg-cyan-400' : 'bg-cyan-600'
-        }`} style={{ animationDelay: '2s' }}></div>
-        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse transition-all duration-300 ${
-          isLight ? 'bg-blue-400' : 'bg-blue-600'
-        }`} style={{ animationDelay: '4s' }}></div>
-      </div>
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md pointer-events-auto">
         {/* Card Container */}
         <div className={`backdrop-blur-lg border rounded-2xl p-8 shadow-2xl hover:border-slate-600/50 transition-all duration-300 ${
           isLight
@@ -251,19 +239,7 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Demo Link */}
-          <div className="mt-6 text-center">
-            <p className={`text-xs mb-3 transition-colors duration-300 ${
-              isLight ? 'text-slate-500' : 'text-slate-500'
-            }`}>Demo Credentials:</p>
-            <code className={`text-xs px-3 py-1 rounded border font-mono transition-all duration-300 ${
-              isLight
-                ? 'bg-slate-200 border-slate-300 text-purple-700'
-                : 'bg-slate-800/50 border-slate-700 text-cyan-400'
-            }`}>
-              admin@wastedteens.com / admin123
-            </code>
-          </div>
+
         </div>
 
         {/* Floating Elements */}

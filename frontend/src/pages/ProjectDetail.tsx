@@ -220,8 +220,8 @@ export default function ProjectDetail() {
   const techList = (project.technologies || project.tech_stack || []).filter(Boolean)
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 transition-colors duration-300 ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+    <div className={`min-h-screen pt-24 pb-20 transition-colors duration-300 w-full ${
+      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       {/* Purchase Alert */}
       {purchaseAlert.show && (

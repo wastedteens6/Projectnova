@@ -139,9 +139,7 @@ export default function Dashboard() {
   // Render loading state
   if (loading) {
     return (
-      <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 ${
-        isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
-      }`}>
+      <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 bg-transparent`}>
         <div className="container max-w-6xl mx-auto">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -155,8 +153,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
+    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 w-full ${
+      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       <div className="container max-w-6xl mx-auto">
         {/* Header with User Name and Refresh Button */}
