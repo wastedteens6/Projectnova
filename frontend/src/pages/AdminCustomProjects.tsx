@@ -6,13 +6,14 @@ import { API_BASE_URL } from '../services/api'
 interface CustomProject {
   id: string
   user_email: string
-  project_name: string
+  subject: string
+  project_name: string // aliased from subject
   description: string
   technologies: string
   domain: string
-  input_output: string
-  deliverables?: string
-  expected_deadline?: string
+  inputOutput: string
+  deliverables?: string[]
+  expectedDeadline?: string
   phone?: string
   budget?: string
   status: 'pending' | 'reviewed' | 'approved' | 'rejected'
@@ -29,6 +30,7 @@ export default function AdminCustomProjects() {
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState<CustomProject | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [adminNotes, setAdminNotes] = useState('')
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -70,14 +72,15 @@ export default function AdminCustomProjects() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, adminNotes })
       })
       const data = await response.json()
       if (data.success) {
-        setProjects(projects.map(p => p.id === id ? { ...p, status: newStatus as any } : p))
+        setProjects(projects.map(p => p.id === id ? { ...p, status: newStatus as any, admin_notes: adminNotes } : p))
         if (selectedProject?.id === id) {
-          setSelectedProject({ ...selectedProject, status: newStatus as any })
+          setSelectedProject({ ...selectedProject, status: newStatus as any, admin_notes: adminNotes })
         }
+        alert('Status updated successfully')
       } else {
         alert(data.message || 'Failed to update status')
       }
@@ -90,7 +93,7 @@ export default function AdminCustomProjects() {
   const getStatusColor = (status: string): string => {
     const colors: { [key: string]: string } = {
       pending: isLight ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-900/30 text-yellow-400',
-      reviewed: isLight ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400',
+      revived: isLight ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400',
       approved: isLight ? 'bg-green-100 text-green-700' : 'bg-green-900/30 text-green-400',
       rejected: isLight ? 'bg-red-100 text-red-700' : 'bg-red-900/30 text-red-400'
     }
@@ -98,131 +101,171 @@ export default function AdminCustomProjects() {
   }
 
   return (
-    <div className={`min-h-screen ${isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
-      {/* Header */}
-      <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} pt-6 pb-6`}>
+    <div className={`min-h-screen pointer-events-none ${isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
+      <div className={`pointer-events-auto border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} pt-6 pb-6`}>
         <div className="container max-w-6xl mx-auto px-4 flex items-center justify-between">
           <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
             Custom Project Requests
           </h1>
           <button
             onClick={() => navigate(-1)}
-            title="Go back to previous page"
             className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-              isLight 
-                ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
-                : 'bg-slate-700 text-white hover:bg-slate-600'
+              isLight ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' : 'bg-slate-700 text-white hover:bg-slate-600'
             }`}
           >
-            <span>← Back</span>
+            ← Back
           </button>
         </div>
       </div>
 
-      <div className={`pt-12 pb-12 px-4 transition-all duration-300`}>
-        <div className="container max-w-6xl mx-auto">
+      <div className="pointer-events-auto container max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-3 gap-8">
+        {/* Left Column: Filter & List */}
+        <div className="md:col-span-1 space-y-6">
+          <div className={`p-4 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'}`}>
+            <label className="block text-sm font-bold mb-2">Filter by Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={`w-full px-4 py-2 rounded-lg border ${
+                isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-600 text-white'
+              }`}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="revived">Revived</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
 
-        <div className={`p-4 rounded-lg border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'}`}>
-          <label className={`block text-sm font-semibold mb-2 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
-            Filter by Status
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className={`w-full px-4 py-2 rounded-lg border ${
-              isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-800 border-slate-600 text-white'
-            }`}
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="reviewed">Reviewed</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-
-        <div className="mt-6">
-          {loading ? (
-            <div className={`p-8 text-center ${isLight ? 'bg-slate-50' : 'bg-slate-900/50'}`}>Loading...</div>
-          ) : projects.length === 0 ? (
-            <div className={`p-8 text-center ${isLight ? 'bg-slate-50' : 'bg-slate-900/50'}`}>
-              No custom project requests found
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {projects.map((project) => (
+          <div className="space-y-3">
+            {loading ? (
+              <div className="text-center py-8 opacity-50">Loading...</div>
+            ) : projects.length === 0 ? (
+              <div className="text-center py-8 opacity-50">No requests found</div>
+            ) : (
+              projects.map((project) => (
                 <div
                   key={project.id}
-                  onClick={() => setSelectedProject(project)}
-                  className={`p-4 rounded-lg border-2 cursor-pointer ${
+                  onClick={() => {
+                    setSelectedProject(project)
+                    setAdminNotes(project.admin_notes || '')
+                  }}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     selectedProject?.id === project.id
-                      ? isLight
-                        ? 'bg-blue-50 border-blue-300'
-                        : 'bg-blue-900/30 border-blue-500'
-                      : isLight
-                        ? 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                        : 'bg-slate-900/30 border-slate-700 hover:border-slate-600'
+                      ? isLight ? 'bg-blue-50 border-blue-400 shadow-lg shadow-blue-200/50' : 'bg-blue-900/20 border-blue-500 shadow-lg shadow-blue-900/20'
+                      : isLight ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold">{project.project_name}</h3>
-                      <p className={isLight ? 'text-slate-600 text-sm' : 'text-slate-400 text-sm'}>
-                        {project.user_email}
-                      </p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(project.status)}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-bold text-sm line-clamp-1">{project.subject}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${getStatusColor(project.status)}`}>
                       {project.status}
                     </span>
                   </div>
+                  <p className="text-[10px] opacity-50 mt-1">{project.user_email}</p>
                 </div>
-              ))}
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Details */}
+        <div className="md:col-span-2">
+          {selectedProject ? (
+            <div className={`p-8 rounded-2xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-2xl font-black">{selectedProject.subject}</h2>
+                <span className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${getStatusColor(selectedProject.status)}`}>
+                  {selectedProject.status}
+                </span>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">User Details</h4>
+                  <p className="text-sm font-bold">{selectedProject.user_email}</p>
+                  <p className="text-xs opacity-70">{selectedProject.phone || 'No phone provided'}</p>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Project Info</h4>
+                  <p className="text-sm font-bold">{selectedProject.domain}</p>
+                  <p className="text-xs opacity-70">Budget: {selectedProject.budget || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Description</h4>
+                  <div className={`p-4 rounded-xl text-sm leading-relaxed ${isLight ? 'bg-slate-50' : 'bg-slate-800/50'}`}>
+                    {selectedProject.description}
+                  </div>
+                </div>
+
+                {selectedProject.technologies && (
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Technologies</h4>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {selectedProject.technologies.split(',').map((tech, i) => (
+                        <span key={i} className={`px-3 py-1 rounded-lg ${isLight ? 'bg-slate-100' : 'bg-slate-800'}`}>
+                          {tech.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Input/Output Details</h4>
+                  <p className="text-sm">{selectedProject.inputOutput || 'N/A'}</p>
+                </div>
+
+                <div className="pt-6 border-t border-slate-800/20">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Admin Response</h4>
+                  <textarea
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                    placeholder="Enter notes or feedback for the user..."
+                    className={`w-full h-32 p-4 rounded-xl border text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none ${
+                      isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700'
+                    }`}
+                  />
+                  
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    <button 
+                      onClick={() => handleStatusUpdate(selectedProject.id, 'approved')}
+                      className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-sm transition-all"
+                    >
+                      Approved
+                    </button>
+                    <button 
+                      onClick={() => handleStatusUpdate(selectedProject.id, 'revived')}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-sm transition-all"
+                    >
+                      Revived
+                    </button>
+                    <button 
+                      onClick={() => handleStatusUpdate(selectedProject.id, 'rejected')}
+                      className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm transition-all"
+                    >
+                      Rejected
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className={`h-full flex items-center justify-center p-12 rounded-2xl border-2 border-dashed ${
+              isLight ? 'border-slate-200 bg-slate-50' : 'border-slate-800 bg-slate-900/20'
+            }`}>
+              <div className="text-center opacity-50">
+                <span className="text-4xl block mb-4">📄</span>
+                <p className="font-bold">Select a request to view details</p>
+              </div>
             </div>
           )}
         </div>
-
-        {selectedProject && (
-          <div className={`mt-6 p-6 rounded-lg border-2 ${
-            isLight ? 'bg-slate-50 border-blue-300' : 'bg-slate-900/50 border-blue-500'
-          }`}>
-            <h2 className="text-2xl font-bold mb-4">{selectedProject.project_name}</h2>
-            <div className="space-y-2 text-sm">
-              <p><strong>Email:</strong> {selectedProject.user_email}</p>
-              <p><strong>Phone:</strong> {selectedProject.phone || 'N/A'}</p>
-              <p><strong>Domain:</strong> {selectedProject.domain}</p>
-              <p><strong>Budget:</strong> {selectedProject.budget || 'N/A'}</p>
-              <p><strong>Description:</strong> {selectedProject.description}</p>
-            </div>
-            
-            <div className={`mt-6 pt-4 flex flex-wrap gap-3 border-t ${isLight ? 'border-slate-200' : 'border-slate-700'}`}>
-              <button 
-                onClick={() => handleStatusUpdate(selectedProject.id, 'approved')} 
-                disabled={selectedProject.status === 'approved'}
-                className="px-5 py-2 font-bold rounded-lg text-sm bg-green-500 hover:bg-green-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Approve
-              </button>
-              
-              <button 
-                onClick={() => handleStatusUpdate(selectedProject.id, 'reviewed')} 
-                disabled={selectedProject.status === 'reviewed'}
-                className="px-5 py-2 font-bold rounded-lg text-sm bg-blue-500 hover:bg-blue-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Reviewed
-              </button>
-              
-              <button 
-                onClick={() => handleStatusUpdate(selectedProject.id, 'rejected')} 
-                disabled={selectedProject.status === 'rejected'}
-                className="px-5 py-2 font-bold rounded-lg text-sm bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
-  </div>
   )
 }

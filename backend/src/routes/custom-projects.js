@@ -58,6 +58,22 @@ router.post('/submit', verifyToken, async (req, res) => {
 });
 
 /**
+ * GET /api/custom-projects/my-requests
+ */
+router.get('/my-requests', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM "Request" WHERE user_id = $1 AND type = 'custom_project' ORDER BY created_at DESC`,
+      [req.userId]
+    );
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (error) {
+    console.error('Error fetching user requests:', error);
+    res.status(500).json({ success: false, message: 'Fetch failed' });
+  }
+});
+
+/**
  * GET /api/admin/custom-projects — Admin: all custom project requests
  */
 router.get('/', adminAuth, async (req, res) => {
@@ -129,8 +145,24 @@ router.patch('/:id', adminAuth, async (req, res) => {
 
     const updatedRequest = result.rows[0];
 
-    // Notification Email Logic
+    // Notification System Logic
     try {
+      // 1. Database Notification
+      let noticeMessage = `The status of your custom project request "${updatedRequest.subject}" has been updated to: ${String(status).toUpperCase()}.`;
+      if (adminNotes) {
+        noticeMessage += ` Admin Note: ${adminNotes}`;
+      }
+
+      console.log('Sending notification to user:', updatedRequest.user_id);
+      console.log('Notification message:', noticeMessage);
+
+      await pool.query(
+        'INSERT INTO "Notification" (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+        [updatedRequest.user_id, 'Project Status Update', noticeMessage, 'status_update']
+      );
+      console.log('Notification inserted successfully');
+
+      // 2. Notification Email Logic
       const transporter = nodemailer.createTransport({
         host: emailConfig.host,
         port: emailConfig.port,
@@ -147,7 +179,7 @@ router.patch('/:id', adminAuth, async (req, res) => {
         emailBody += "Great news! Your project request has been approved. Our team will reach out with the next steps shortly.\n";
       } else if (status === 'rejected') {
         emailBody += "Unfortunately, we are unable to accept your project request at this time.\n";
-      } else if (status === 'reviewed') {
+      } else if (status === 'revived') {
         emailBody += "We are currently reviewing your project details. Please stand by for the final decision.\n";
       }
 

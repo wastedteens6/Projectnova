@@ -93,9 +93,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className={`min-h-screen transition-all duration-300 w-full ${isLight ? 'bg-transparent text-slate-900' : 'bg-transparent text-white'}`}>
+    <div className={`min-h-screen transition-all duration-300 w-full pointer-events-none ${isLight ? 'bg-transparent text-slate-900' : 'bg-transparent text-white'}`}>
       {/* Admin Header */}
-      <div className={`border-b backdrop-blur-md transition-all duration-300 ${isLight ? 'bg-white/50 border-slate-200' : 'bg-slate-900/50 border-slate-800'}`}>
+      <div className={`border-b backdrop-blur-md transition-all duration-300 pointer-events-auto ${isLight ? 'bg-white/50 border-slate-200' : 'bg-slate-900/50 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <div>
             <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Admin Dashboard</h1>
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
       ) : (
         <>
           {/* Main Content */}
-          <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="max-w-7xl mx-auto px-6 py-8 pointer-events-auto">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className={`rounded-lg p-6 shadow-sm border-t-4 border-red-500 transition-all ${isLight ? 'bg-white' : 'bg-slate-800'}`}>

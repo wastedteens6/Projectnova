@@ -68,10 +68,10 @@ export default function ProjectUpload() {
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 ${
+    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 pointer-events-none ${
       isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
     }`}>
-      <div className="container max-w-2xl mx-auto">
+      <div className="container max-w-2xl mx-auto pointer-events-auto">
         <div className="mb-8">
           <h1 className={`text-5xl font-bold mb-2 transition-colors duration-300 ${
             isLight ? 'text-slate-900' : 'text-white'

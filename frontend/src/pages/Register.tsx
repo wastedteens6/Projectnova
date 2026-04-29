@@ -90,7 +90,7 @@ export default function Register() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full ${
+    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       {/* Animated Background Blobs */}
@@ -106,7 +106,7 @@ export default function Register() {
         }`} style={{ animationDelay: '4s' }}></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md pointer-events-auto">
         {/* Card Container */}
         <div className={`backdrop-blur-lg border rounded-2xl p-8 shadow-2xl hover:border-slate-600/50 transition-all duration-300 ${
           isLight

@@ -220,12 +220,12 @@ export default function ProjectDetail() {
   const techList = (project.technologies || project.tech_stack || []).filter(Boolean)
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 transition-colors duration-300 w-full ${
+    <div className={`min-h-screen pt-24 pb-20 transition-colors duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       {/* Purchase Alert */}
       {purchaseAlert.show && (
-        <div className={`fixed top-24 right-4 px-6 py-3 rounded-lg z-50 border transition-all duration-300 ${
+        <div className={`fixed top-24 right-4 px-6 py-3 rounded-lg z-50 border transition-all duration-300 pointer-events-auto ${
           purchaseAlert.type === 'error'
             ? 'bg-red-500/20 border-red-500/50 text-red-300'
             : isLight
@@ -236,7 +236,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pointer-events-auto">
         <button onClick={() => navigate('/projects')} className={`mb-6 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
           isLight ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-900'
         }`}>

@@ -193,7 +193,7 @@ Thank you for your purchase!
   }
 
   return (
-    <section className={`py-20 px-4 transition-colors duration-300 ${
+    <section className={`py-20 px-4 transition-colors duration-300 pointer-events-auto ${
       isLight ? 'bg-slate-50' : 'bg-slate-900/30'
     }`}>
       <div className="container max-w-7xl mx-auto">

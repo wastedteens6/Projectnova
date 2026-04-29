@@ -40,7 +40,7 @@ export default function Login() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full ${
+    <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
 

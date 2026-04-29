@@ -12,8 +12,8 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =======================================================
 -- STEP 1: Drop existing tables (safe re-run)
 -- =======================================================
-DROP TABLE IF EXISTS "CustomRequest" CASCADE;
-DROP TABLE IF EXISTS "Support"       CASCADE;
+DROP TABLE IF EXISTS "Notification"  CASCADE;
+DROP TABLE IF EXISTS "Request"       CASCADE;
 DROP TABLE IF EXISTS "Transaction"   CASCADE;
 DROP TABLE IF EXISTS "Project"       CASCADE;
 DROP TABLE IF EXISTS "User"          CASCADE;
@@ -122,48 +122,36 @@ CREATE TABLE "Transaction" (
 );
 
 -- -------------------------------------------------------
--- TABLE 4: Support
--- Tracks support tickets with full message conversation.
+-- TABLE 4: Request
+-- Tracks support tickets and custom project requests.
 -- -------------------------------------------------------
-CREATE TABLE "Support" (
+CREATE TABLE "Request" (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID REFERENCES "User"(id) ON DELETE CASCADE,
+  user_email   VARCHAR(255),
+  type         VARCHAR(50)  NOT NULL, -- 'support' | 'custom_project'
   subject      VARCHAR(255) NOT NULL,
-  status       VARCHAR(50)  DEFAULT 'open',   -- 'open' | 'closed' | 'in_progress'
+  description  TEXT         NOT NULL,
+  details      JSONB        DEFAULT '{}',
+  status       VARCHAR(50)  DEFAULT 'pending', -- 'pending', 'open', 'approved', 'reviewed', 'rejected', 'closed'
+  admin_notes  TEXT,
   conversation JSONB        DEFAULT '[]',
-  -- conversation structure:
-  -- [
-  --   { "sender": "user",  "message": "I need help...", "timestamp": "ISO8601" },
-  --   { "sender": "admin", "message": "Sure! ...",       "timestamp": "ISO8601" }
-  -- ]
   created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
 
 -- -------------------------------------------------------
--- TABLE 5: CustomRequest
--- Stores custom project build requests from users.
+-- TABLE 5: Notification
+-- Stores system notifications for users.
 -- -------------------------------------------------------
-CREATE TABLE "CustomRequest" (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_email   VARCHAR(255) NOT NULL,
-  project_name VARCHAR(255) NOT NULL,
-  description  TEXT         NOT NULL,
-  details      JSONB        DEFAULT '{}',
-  -- details structure example:
-  -- {
-  --   "technologies": "Python, React",
-  --   "domain": "Machine Learning",
-  --   "inputOutput": "Takes image, outputs label",
-  --   "deliverables": ["source", "ppt", "report"],
-  --   "expectedDeadline": "2026-05-01",
-  --   "phone": "+91-9876543210",
-  --   "budget": "₹5000-₹10000"
-  -- }
-  status       VARCHAR(50)  DEFAULT 'pending',   -- 'pending' | 'accepted' | 'rejected' | 'completed'
-  admin_notes  TEXT,
-  created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-  updated_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE "Notification" (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID REFERENCES "User"(id) ON DELETE CASCADE,
+  title      VARCHAR(255) NOT NULL,
+  message    TEXT NOT NULL,
+  type       VARCHAR(50), -- 'status_update', 'order_success', etc.
+  is_read    BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =======================================================
@@ -177,6 +165,8 @@ CREATE INDEX idx_transaction_status ON "Transaction"("status");
 CREATE INDEX idx_support_user       ON "Support"("user_id");
 CREATE INDEX idx_customreq_email    ON "CustomRequest"("user_email");
 CREATE INDEX idx_customreq_status   ON "CustomRequest"("status");
+CREATE INDEX idx_notification_user  ON "Notification"("user_id");
+CREATE INDEX idx_notification_read  ON "Notification"("is_read");
 
 -- =======================================================
 -- STEP 4: Seed initial data
@@ -208,4 +198,5 @@ INSERT INTO "User" (email, name, password, role) VALUES
 --   "Transaction"   — purchases and payment records
 --   "Support"       — customer support tickets
 --   "CustomRequest" — custom project build requests
+--   "Notification"  — system notifications for users
 -- =======================================================

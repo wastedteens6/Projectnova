@@ -195,38 +195,6 @@ export default function Checkout() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
-      // ── Mock payment (dev mode) ──
-      if (res.data?.isMockPayment) {
-        try {
-          const mockOrderId = `mock_${Date.now()}`
-          for (const item of cartItems) {
-            if (item.isUpgrade) {
-              await axios.post(
-                'http://localhost:5000/api/purchases/upgrade-tier/confirm',
-                { project_id: String(item.id), target_tier_level: item.tierLevel, order_id: `${mockOrderId}_${item.id}_upgrade` },
-                { headers: { Authorization: `Bearer ${token}` } }
-              )
-            } else {
-              await axios.post(
-                'http://localhost:5000/api/checkout/verify-payment',
-                { orderId: `${mockOrderId}_${item.id}`, projectIds: [item.id], tier: item.tier || 'Standard', tierLevel: item.tierLevel || 1, price: item.price },
-                { headers: { Authorization: `Bearer ${token}` } }
-              )
-            }
-          }
-          setSuccessAlert({ show: true, message: '🎭 Mock Payment Successful! Purchase saved.' })
-          clearCheckoutState()
-          setTimeout(() => navigate('/dashboard'), 1500)
-        } catch (verifyErr: any) {
-          setErrorAlert({
-            show: true,
-            message: 'Failed to save purchase: ' + (verifyErr.response?.data?.error || verifyErr.message),
-          })
-        }
-        setLoading(false)
-        return
-      }
-
       // ── Razorpay ──
       if (selectedPayment === 'razorpay') {
         const options = {
@@ -238,26 +206,38 @@ export default function Checkout() {
           order_id: res.data.orderId,
           handler: async (response: any) => {
             try {
+              let finalId = response.razorpay_order_id;
               for (const item of cartItems) {
-                if (item.isUpgrade) {
-                  await axios.post(
-                    'http://localhost:5000/api/purchases/upgrade-tier/confirm',
-                    { project_id: String(item.id), target_tier_level: item.tierLevel, order_id: response.razorpay_order_id },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                  )
-                } else {
-                  await axios.post(
-                    'http://localhost:5000/api/checkout/verify-payment',
-                    { orderId: response.razorpay_order_id, projectIds: [item.id], tier: item.tier || 'Standard', tierLevel: item.tierLevel || 1, price: item.price },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                  )
-                }
+                const endpoint = item.isUpgrade 
+                  ? 'http://localhost:5000/api/purchases/upgrade-tier/confirm'
+                  : 'http://localhost:5000/api/checkout/verify-payment';
+                
+                const verifyRes = await axios.post(
+                  endpoint,
+                  { 
+                    project_id: String(item.id), 
+                    projectIds: [item.id],
+                    target_tier_level: item.tierLevel, 
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    tier: item.tier || 'Standard', 
+                    tierLevel: item.tierLevel || 1, 
+                    price: item.price
+                  },
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                
+                if (verifyRes.data.id) finalId = verifyRes.data.id;
               }
               setSuccessAlert({ show: true, message: '✅ Payment successful!' })
               clearCheckoutState()
-              setTimeout(() => navigate(`/receipt/${response.razorpay_order_id}`), 1000)
-            } catch {
-              setErrorAlert({ show: true, message: 'Verification failed. Please contact support.' })
+              setTimeout(() => navigate(`/receipt/${finalId}`), 1000)
+            } catch (err: any) {
+              setErrorAlert({ 
+                show: true, 
+                message: 'Verification failed: ' + (err.response?.data?.error || 'Please contact support.') 
+              })
             }
           },
           prefill: { email, contact: phone },
@@ -285,10 +265,10 @@ export default function Checkout() {
   const item = cartItems[0]
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 w-full ${
+    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
-      <div className="container max-w-3xl mx-auto">
+      <div className="container max-w-3xl mx-auto pointer-events-auto">
 
         {/* Alerts */}
         {successAlert.show && (
@@ -318,31 +298,15 @@ export default function Checkout() {
             {/* Payment Method */}
             <div className="mb-8">
               <h3 className={`text-lg font-bold mb-4 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                Select Payment Method
+                Payment Method
               </h3>
-              <div className="space-y-3">
-                {[
-                  { value: 'razorpay', label: 'Razorpay (Credit/Debit Card, NetBanking, Wallet)' },
-                  { value: 'upi', label: 'UPI (Google Pay, PhonePe, Paytm)' },
-                ].map(opt => (
-                  <label key={opt.value} className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 ${
-                    selectedPayment === opt.value
-                      ? isLight ? 'border-purple-600 bg-purple-50' : 'border-purple-600 bg-purple-500/20'
-                      : isLight ? 'border-slate-200 bg-white' : 'border-slate-700 bg-slate-800/50'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value={opt.value}
-                      checked={selectedPayment === opt.value}
-                      onChange={e => setSelectedPayment(e.target.value)}
-                      className="w-4 h-4"
-                    />
-                    <span className={`ml-3 font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      {opt.label}
-                    </span>
-                  </label>
-                ))}
+              <div className={`flex items-center p-4 rounded-lg border-2 border-purple-600 ${
+                isLight ? 'bg-purple-50' : 'bg-purple-500/20'
+              }`}>
+                <div className="w-4 h-4 rounded-full bg-purple-600" />
+                <span className={`ml-3 font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                  Razorpay (Cards, UPI, NetBanking, Wallets)
+                </span>
               </div>
             </div>
 

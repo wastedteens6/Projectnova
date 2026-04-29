@@ -34,10 +34,10 @@ export default function Pricing() {
   const isLight = theme === 'light'
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 ${
+    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 pointer-events-none ${
       isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
     }`}>
-      <div className="container max-w-6xl mx-auto">
+      <div className="container max-w-6xl mx-auto pointer-events-auto">
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-4">

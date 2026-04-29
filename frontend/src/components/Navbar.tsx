@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import ThemeToggle from './ThemeToggle'
+import NotificationBell from './NotificationBell'
 
 export default function Navbar() {
   const { theme } = useTheme()
@@ -86,6 +87,7 @@ export default function Navbar() {
           {/* Right Section */}
           <div className="flex gap-3 items-center">
             <ThemeToggle />
+            {token && <NotificationBell />}
             {token ? (
               <div className="flex gap-2">
                 {userRole === 'user' && (

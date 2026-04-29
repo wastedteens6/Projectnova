@@ -42,7 +42,7 @@ export default function AdminLogin() {
         ? 'bg-gradient-to-br from-slate-100 to-slate-200'
         : 'bg-gradient-to-br from-slate-900 to-slate-800'
     }`}>
-      <div className="container max-w-md">
+      <div className="container max-w-md pointer-events-auto">
         <div className={`border-2 rounded-lg p-8 shadow-2xl transition-all duration-300 ${
           isLight
             ? 'bg-white border-purple-600 text-slate-900'

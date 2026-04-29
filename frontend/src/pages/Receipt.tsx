@@ -156,12 +156,12 @@ export default function Receipt() {
 
   return (
     <div
-      className={`min-h-screen py-8 px-4 w-full ${
+      className={`min-h-screen py-8 px-4 w-full pointer-events-none ${
         isDark ? "text-gray-100 bg-transparent" : "text-gray-900 bg-transparent"
       }`}
     >
       {/* Header with Navigation */}
-      <div className="max-w-4xl mx-auto mb-6 flex items-center justify-between">
+      <div className="max-w-4xl mx-auto mb-6 flex items-center justify-between pointer-events-auto">
         <button
           onClick={() => navigate("/dashboard")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
@@ -202,7 +202,7 @@ export default function Receipt() {
       </div>
 
       {/* Receipt Container */}
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pointer-events-auto">
         <div
           id="receipt-content"
           className={`rounded-2xl shadow-2xl overflow-hidden ${

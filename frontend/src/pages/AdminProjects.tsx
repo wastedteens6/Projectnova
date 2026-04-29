@@ -116,9 +116,9 @@ export default function AdminProjects() {
   }
 
   return (
-    <div className={`min-h-screen transition-all duration-300 ${isLight ? 'bg-slate-50' : 'bg-slate-950'}`}>
+    <div className={`min-h-screen transition-all duration-300 pointer-events-none ${isLight ? 'bg-slate-50' : 'bg-slate-950'}`}>
       {/* Header */}
-      <div className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
+      <div className={`border-b transition-all duration-300 pointer-events-auto ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
           <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Manage Projects</h1>
           <div className="flex gap-3 items-center">
@@ -144,7 +144,7 @@ export default function AdminProjects() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8 pointer-events-auto">
         <div className="flex justify-between items-center mb-8">
           <h2 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Projects ({projects.length})</h2>
           <button

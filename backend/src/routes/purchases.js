@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import { pool } from "../config/database.js";
 import { verifyToken } from "../middleware/auth.js";
 
@@ -15,7 +16,8 @@ router.get("/my-purchases", verifyToken, async (req, res) => {
         tier.name as tier_level,
         tier.level as tier_numeric_level,
         o.amount_in_paise as price_in_paise,
-        o.order_id,
+        o.razorpay_order_id as order_id,
+        o.status,
         o.created_at,
         p.title as project_title,
         p.slug,
@@ -23,7 +25,7 @@ router.get("/my-purchases", verifyToken, async (req, res) => {
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
       LEFT JOIN "Tier" tier ON o.tier_id = tier.id
-      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status = 'completed'
+      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
     `,
       [req.userId],
@@ -55,7 +57,7 @@ router.get("/check-purchase/:projectId", verifyToken, async (req, res) => {
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
       LEFT JOIN "Tier" tier ON o.tier_id = tier.id
-      WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+      WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
       LIMIT 1
     `,
@@ -70,7 +72,7 @@ router.get("/check-purchase/:projectId", verifyToken, async (req, res) => {
       tier: order.tier_level || 1,
       tierName: order.tier_name || "Unknown",
       price: order.amount_in_paise,
-      orderId: order.order_id,
+      orderId: order.razorpay_order_id,
     });
   } catch (err) {
     console.error("Check purchase error:", err);
@@ -111,7 +113,8 @@ router.get("/user", verifyToken, async (req, res) => {
         tier.name as tier_level,
         tier.level as tier_numeric_level,
         o.amount_in_paise as price_in_paise,
-        o.order_id,
+        o.razorpay_order_id as order_id,
+        o.status,
         o.created_at,
         p.title as project_title,
         p.slug,
@@ -121,7 +124,7 @@ router.get("/user", verifyToken, async (req, res) => {
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
       LEFT JOIN "Tier" tier ON o.tier_id = tier.id
-      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status = 'completed'
+      WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
     `,
       [userId],
@@ -211,7 +214,7 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
       `SELECT o.id, o.amount_in_paise, tier.name as tier_name, tier.level as tier_level
        FROM "Order" o
        LEFT JOIN "Tier" tier ON o.tier_id = tier.id
-       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
        ORDER BY o.created_at DESC LIMIT 1`,
       [userId, project_id],
     );
@@ -266,19 +269,38 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
 router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { project_id, target_tier_level, order_id } = req.body;
+    const { 
+      project_id, 
+      target_tier_level, 
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    } = req.body;
+    
     const userId = req.userId;
 
-    if (!project_id || target_tier_level === undefined || !order_id) {
-      return res.status(400).json({ error: "Missing required fields" });
+    if (!project_id || target_tier_level === undefined || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: "Missing required payment verification fields" });
+    }
+
+    // 1. Mandatory Signature Verification
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      console.warn("⚠️  Invalid upgrade signature detected!");
+      return res.status(400).json({ error: "Invalid payment signature" });
     }
 
     await client.query("BEGIN");
 
-    // Idempotency — if this order_id already exists, return success
+    // Idempotency — if this razorpay_order_id already exists, return success
     const existingUpgrade = await client.query(
-      `SELECT id FROM "Order" WHERE user_id = $1 AND order_id = $2 AND type = 'upgrade' LIMIT 1`,
-      [userId, order_id],
+      `SELECT id FROM "Order" WHERE user_id = $1 AND razorpay_order_id = $2 AND type = 'upgrade' LIMIT 1`,
+      [userId, razorpay_order_id],
     );
     if (existingUpgrade.rows.length > 0) {
       await client.query("COMMIT");
@@ -315,7 +337,7 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
     const purchaseResult = await client.query(
       `SELECT o.id, o.amount_in_paise, o.tier_id, tier.level as tier_level
        FROM "Order" o LEFT JOIN "Tier" tier ON o.tier_id = tier.id
-       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status = 'completed'
+       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
        ORDER BY o.created_at DESC LIMIT 1`,
       [userId, project_id],
     );
@@ -369,26 +391,31 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
     const targetTierId = targetTierLookup.rows[0]?.id || null;
 
     // Record upgrade order (audit trail)
-    await client.query(
-      `INSERT INTO "Order" (user_id, project_id, tier_id, type, status, amount_in_paise, order_id, payment_info)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    const upgradeInsert = await client.query(
+      `INSERT INTO "Order" (
+         user_id, project_id, tier_id, type, status,
+         amount_in_paise, razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_info
+       ) VALUES ($1, $2, $3, $4, 'verified', $5, $6, $7, $8, $9)
+       RETURNING id`,
       [
         userId,
         project_id,
         targetTierId,
         "upgrade",
-        "completed",
         upgradePricePaise,
-        order_id,
-        JSON.stringify({ orderId: order_id, tier: targetTier.name }),
+        razorpay_order_id,
+        razorpay_payment_id || null,
+        razorpay_signature || null,
+        JSON.stringify({ tier: targetTier.name, provider: "razorpay" }),
       ],
     );
 
     await client.query("COMMIT");
     res.json({
       success: true,
-      message: "Upgrade recorded successfully",
+      message: "Upgrade verified successfully",
       new_tier: targetTier.name,
+      id: upgradeInsert.rows[0]?.id
     });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -399,8 +426,13 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
   }
 });
 
-// ─── POST /api/purchases/record-purchase ─────────────────────────────
-router.post("/record-purchase", async (req, res) => {
+// ─── POST /api/purchases/record-purchase (Internal/Admin only recommended) ─────────────────────────────
+router.post("/record-purchase", verifyToken, async (req, res) => {
+  // Ensure only admins can record manual purchases if needed
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  
   try {
     const { projectId, tier, price, orderId, userEmail } = req.body;
 

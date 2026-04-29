@@ -33,7 +33,7 @@ export default function Home() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 w-full ${
+    <div className={`min-h-screen transition-colors duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
       {/* Hero Section */}
@@ -56,7 +56,7 @@ export default function Home() {
           isLight ? 'bg-blue-400' : 'bg-blue-500'
         }`}></div>
 
-        <div className="container relative z-10 max-w-6xl mx-auto">
+        <div className="container relative z-10 max-w-6xl mx-auto pointer-events-auto">
           <div className="text-center mb-12">
             {/* Typing effect heading */}
             <div className="mb-6 h-24 flex items-center justify-center">
@@ -181,7 +181,7 @@ export default function Home() {
       </section>
 
       {/* Technology Cards Section */}
-      <section className={`py-20 px-4 transition-colors duration-300 bg-transparent`}>
+      <section className={`py-20 px-4 transition-colors duration-300 bg-transparent pointer-events-auto`}>
         <div className="container max-w-6xl mx-auto">
           {/* Section heading */}
           <div className="text-center mb-16">
@@ -338,7 +338,7 @@ export default function Home() {
       <FeaturedProjects />
 
       {/* Custom Projects Section */}
-      <section className={`py-20 px-4 transition-colors duration-300 bg-transparent`}>
+      <section className={`py-20 px-4 transition-colors duration-300 bg-transparent pointer-events-auto`}>
         <div className="container max-w-6xl mx-auto">
           <div className={`rounded-3xl border-2 backdrop-blur-lg p-16 md:p-20 text-center transition-all duration-300 ${
             isLight

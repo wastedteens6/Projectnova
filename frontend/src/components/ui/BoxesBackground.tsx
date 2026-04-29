@@ -12,7 +12,7 @@ export const BackgroundContainer = ({ children }: { children: React.ReactNode })
     <div className={`relative min-h-screen w-full overflow-hidden ${isLight ? 'bg-slate-50' : 'bg-slate-900'}`}>
       <div className="absolute inset-0 z-0 overflow-hidden">
         <Boxes />
-        <div className={`pointer-events-none absolute inset-0 z-20 ${
+        <div className={`pointer-events-none absolute inset-0 z-5 ${
           isLight ? 'bg-slate-50' : 'bg-slate-900'
         } [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]`} />
       </div>

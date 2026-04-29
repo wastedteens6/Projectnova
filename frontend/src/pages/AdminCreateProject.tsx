@@ -276,10 +276,10 @@ export default function AdminCreateProject() {
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 ${
+    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 pointer-events-none ${
       isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
     }`}>
-      <div className="container max-w-4xl mx-auto">
+      <div className="container max-w-4xl mx-auto pointer-events-auto">
         {/* Alert */}
         {alert.show && (
           <div className={`fixed top-24 right-4 px-6 py-3 rounded-lg z-50 animate-pulse border transition-all duration-300 ${
@@ -614,7 +614,7 @@ export default function AdminCreateProject() {
       </div>
 
       {/* Bottom Navigation - Back Button Only */}
-      <div className="fixed bottom-6 left-6 z-40">
+      <div className="fixed bottom-6 left-6 z-40 pointer-events-auto">
         <button
           onClick={() => navigate(-1)}
           title="Go back to previous page"

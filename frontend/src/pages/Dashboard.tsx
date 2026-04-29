@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE_URL } from '../services/api'
 
 export default function Dashboard() {
   const { theme } = useTheme()
@@ -10,41 +11,40 @@ export default function Dashboard() {
   const [userName, setUserName] = useState('User')
   const [userEmail, setUserEmail] = useState('')
   const [purchasedProjects, setPurchasedProjects] = useState<any[]>([])
+  const [customRequests, setCustomRequests] = useState<any[]>([])
   const [cartItems, setCartItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Fetch user-specific data from backend
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token')
       const email = localStorage.getItem('userEmail')
-      
-      if (!token || !email) {
-        navigate('/auth/login')
-        return
-      }
-
+      if (!token || !email) { navigate('/auth/login'); return; }
       setRefreshing(true)
 
-      // Fetch user's purchased projects
-      const response = await fetch(`http://localhost:5000/api/purchases/user?email=${encodeURIComponent(email)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const [resPurchases, resCustom] = await Promise.all([
+        fetch(`${API_BASE_URL}/purchases/user?email=${encodeURIComponent(email)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/custom-projects/my-requests`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch purchases')
+      if (resPurchases.ok) {
+        const data = await resPurchases.json()
+        setPurchasedProjects(data.data || [])
       }
 
-      const data = await response.json()
-      setPurchasedProjects(data.data || [])
+      if (resCustom.ok) {
+        const data = await resCustom.json()
+        setCustomRequests(data.data || [])
+      }
+
       setUserEmail(email)
-
-      // Get stored name
       const storedUserName = localStorage.getItem('userName')
-      if (storedUserName) {
-        setUserName(storedUserName)
-      }
+      if (storedUserName) setUserName(storedUserName)
     } catch (err) {
       console.error('Error fetching user data:', err)
     } finally {
@@ -55,7 +55,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchUserData()
+    const interval = setInterval(fetchUserData, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
+  useEffect(() => {
     // Get cart items from localStorage — deduplicate by project id
     const storedCart = localStorage.getItem('cart')
     if (storedCart) {
@@ -132,7 +136,7 @@ export default function Dashboard() {
 
   const stats = [
     { label: 'Purchased Projects', value: purchasedProjects.length.toString(), icon: '📦', color: 'from-purple-600 to-pink-600' },
-    { label: 'Support Tickets', value: '0', icon: '🎫', color: 'from-blue-600 to-cyan-600' },
+    { label: 'Custom Requests', value: customRequests.length.toString(), icon: '💡', color: 'from-amber-500 to-orange-600' },
     { label: 'Total Spent', value: `₹${totalSpent.toLocaleString()}`, icon: '💰', color: 'from-green-600 to-emerald-600' }
   ]
 
@@ -153,10 +157,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 w-full ${
+    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
-      <div className="container max-w-6xl mx-auto">
+      <div className="container max-w-6xl mx-auto pointer-events-auto">
         {/* Header with User Name and Refresh Button */}
         <div className="flex justify-between items-start mb-12">
           <div>
@@ -409,6 +413,57 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Custom Project Requests */}
+        <div className={`backdrop-blur-lg border rounded-2xl p-8 mt-8 transition-all duration-300 ${
+          isLight
+            ? 'border-amber-200 bg-amber-50/40'
+            : 'border-amber-700/30 bg-slate-900/40'
+        }`}>
+          <h2 className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
+            isLight ? 'text-amber-600' : 'text-amber-400'
+          }`}>Your Custom Project Requests</h2>
+          
+          {customRequests.length === 0 ? (
+            <div className={`text-center py-8 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+              <p>You haven't submitted any custom project requests yet.</p>
+              <a href="/projects/custom" className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg font-bold hover:shadow-lg transition">
+                Request Custom Project
+              </a>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {customRequests.map((req, i) => (
+                <div key={i} className={`p-6 rounded-xl border transition-all ${
+                  isLight ? 'bg-white border-slate-100' : 'bg-slate-800/50 border-slate-700'
+                }`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-bold text-lg">{req.subject}</h3>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                      req.status === 'approved' ? 'bg-green-500/20 text-green-500' :
+                      req.status === 'rejected' ? 'bg-red-500/20 text-red-500' :
+                      req.status === 'revived' ? 'bg-blue-500/20 text-blue-500' :
+                      'bg-yellow-500/20 text-yellow-500'
+                    }`}>
+                      {req.status}
+                    </span>
+                  </div>
+                  <p className={`text-sm mb-4 line-clamp-2 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                    {req.description}
+                  </p>
+                  {req.admin_notes && (
+                    <div className={`p-3 rounded-lg text-xs ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-900/50 border border-slate-700'}`}>
+                      <p className="font-bold mb-1 uppercase tracking-tight opacity-70">Admin Notes:</p>
+                      <p className={isLight ? 'text-slate-700' : 'text-slate-300'}>{req.admin_notes}</p>
+                    </div>
+                  )}
+                  <p className={`text-[10px] mt-4 opacity-50 font-medium ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    Requested on {new Date(req.created_at).toLocaleDateString()}
+                  </p>
                 </div>
               ))}
             </div>

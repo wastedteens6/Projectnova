@@ -39,10 +39,10 @@ npm run dev`
   ]
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 ${
+    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 pointer-events-none ${
       isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
     }`}>
-      <div className="container max-w-4xl mx-auto">
+      <div className="container max-w-4xl mx-auto pointer-events-auto">
         {/* Header */}
         <div className="mb-16 text-center">
           <h1 className="text-5xl font-black mb-4">

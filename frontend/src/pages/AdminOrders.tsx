@@ -44,8 +44,8 @@ export default function AdminOrders() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className={`border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
+    <div className="min-h-screen bg-transparent pointer-events-none">
+      <header className={`border-b transition-all duration-300 pointer-events-auto ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
         <div className="container max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
           <h1 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Manage Orders</h1>
           <div className="flex gap-3 items-center">
@@ -74,7 +74,7 @@ export default function AdminOrders() {
         </div>
       </header>
 
-      <div className="container py-12">
+      <div className="container py-12 pointer-events-auto">
         <h2 className="text-3xl font-bold text-slate-900 mb-8">Orders Management</h2>
         
         <div className="bg-white rounded-lg shadow-md overflow-hidden">

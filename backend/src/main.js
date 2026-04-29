@@ -41,6 +41,25 @@ app.use(
   }),
 );
 
+// Routes
+import authRoutes from "./routes/auth.js";
+import projectRoutes from "./routes/projects.js";
+import cartRoutes from "./routes/cart.js";
+import checkoutRoutes from "./routes/checkout.js";
+import orderRoutes from "./routes/orders.js";
+import supportRoutes from "./routes/support.js";
+import purchasesRoutes from "./routes/purchases.js";
+import receiptsRoutes from "./routes/receipts.js";
+import adminRoutes from "./routes/admin.js";
+import customProjectRoutes from "./routes/custom-projects.js";
+import notificationRoutes from "./routes/notifications.js";
+import webhookRoutes from "./routes/webhook.js";
+
+// ─── IMPORTANT: Webhook must be mounted BEFORE express.json() ────────────────
+// Razorpay webhook requires the raw request body (Buffer) for HMAC verification.
+// express.json() would parse and destroy the raw body before the webhook can use it.
+app.use("/api/webhook", webhookRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -79,18 +98,6 @@ const uploadsPath = path.join(__dirname, "../uploads");
 console.log("📁 Serving static files from:", uploadsPath);
 app.use("/uploads", express.static(uploadsPath));
 
-// Routes
-import authRoutes from "./routes/auth.js";
-import projectRoutes from "./routes/projects.js";
-import cartRoutes from "./routes/cart.js";
-import checkoutRoutes from "./routes/checkout.js";
-import orderRoutes from "./routes/orders.js";
-import supportRoutes from "./routes/support.js";
-import purchasesRoutes from "./routes/purchases.js";
-import receiptsRoutes from "./routes/receipts.js";
-import adminRoutes from "./routes/admin.js";
-import customProjectRoutes from "./routes/custom-projects.js";
-
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/cart", cartRoutes);
@@ -102,6 +109,7 @@ app.use("/api/receipts", receiptsRoutes);
 app.use("/api/admin/projects", adminRoutes);
 app.use("/api/custom-projects", customProjectRoutes);
 app.use("/api/admin/custom-projects", customProjectRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Health check with database status
 app.get("/health", async (req, res) => {

@@ -23,17 +23,17 @@ const getRandomColor = () => colors[Math.floor(Math.random() * colors.length)]
 
 const BoxCell = React.memo(({ showPlus }: { showPlus: boolean }) => (
   <motion.div
-    className="relative h-8 w-16 border-r border-t border-slate-700"
+    className="relative h-8 w-16 border-r border-t border-slate-700/30"
     whileHover={{
       backgroundColor: getRandomColor(),
       transition: { duration: 0 },
     }}
-    transition={{ duration: 2 }}
+    transition={{ duration: 1.5 }}
   >
     {showPlus && (
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute -left-[22px] -top-[14px] h-6 w-10 text-slate-700"
+        className="pointer-events-none absolute -left-[22px] -top-[14px] h-6 w-10 text-slate-700/50"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
@@ -49,7 +49,7 @@ const BoxCell = React.memo(({ showPlus }: { showPlus: boolean }) => (
 BoxCell.displayName = "BoxCell"
 
 const BoxRow = React.memo(({ rowIndex, cols }: { rowIndex: number; cols: number }) => (
-  <div className="relative h-8 w-16 border-l border-slate-700">
+  <div className="flex flex-row relative h-8">
     {Array.from({ length: cols }).map((_, colIndex) => (
       <BoxCell key={colIndex} showPlus={rowIndex % 2 === 0 && colIndex % 2 === 0} />
     ))}
@@ -69,7 +69,7 @@ export const Boxes = ({ className = '', rows = 150, cols = 100 }: BoxesProps) =>
 
   return (
     <div
-      className={`pointer-events-auto absolute inset-0 z-0 flex ${className}`}
+      className={`pointer-events-auto absolute inset-0 z-0 flex flex-col ${className}`}
       style={{
         transform: "translate(-50%, -50%) skewX(-48deg) skewY(14deg) scale(0.675)",
         transformOrigin: "center center",

@@ -280,18 +280,18 @@ Thank you for your purchase!
   })
 
   return (
-    <div className={`min-h-screen pt-24 pb-16 w-full ${isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'}`}>
+    <div className={`min-h-screen pt-24 pb-16 w-full pointer-events-none ${isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'}`}>
 
       {/* Alert */}
       {purchaseAlert.show && (
-        <div className={`fixed top-20 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg ${
+        <div className={`fixed top-20 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg pointer-events-auto ${
           isLight ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-green-500/10 text-green-400 border border-green-500/20'
         }`}>
           {purchaseAlert.message}
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pointer-events-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className={`text-4xl sm:text-5xl font-extrabold tracking-tight mb-3 ${
