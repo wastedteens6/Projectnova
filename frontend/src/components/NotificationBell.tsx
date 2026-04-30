@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { API_BASE_URL } from '../services/api'
 import { useTheme } from '../context/ThemeContext'
+import { HiOutlineBell } from 'react-icons/hi2'
+import { motion } from 'framer-motion'
 
 export default function NotificationBell() {
   const { theme } = useTheme()
@@ -72,15 +74,32 @@ export default function NotificationBell() {
     }
   }
 
+  const clearAllNotifications = async () => {
+    if (!window.confirm('Clear all notifications? This cannot be undone.')) return
+    const token = localStorage.getItem('token')
+    try {
+      await fetch(`${API_BASE_URL}/notifications/clear-all`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      setNotifications([])
+      setUnreadCount(0)
+    } catch (err) {
+      console.error('Error clearing notifications:', err)
+    }
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2 rounded-lg transition-all relative ${
+        className={`p-2 rounded-xl transition-all relative ${
           isLight ? 'hover:bg-slate-100 text-slate-600' : 'hover:bg-slate-800 text-slate-300'
         }`}
       >
-        <span className="text-xl">🔔</span>
+        <HiOutlineBell className="w-6 h-6" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 flex h-4 w-4">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -89,27 +108,37 @@ export default function NotificationBell() {
             </span>
           </span>
         )}
-      </button>
+      </motion.button>
 
       {isOpen && (
         <div className={`absolute right-0 mt-2 w-80 rounded-2xl border shadow-2xl overflow-hidden z-[60] transition-all ${
           isLight ? 'bg-white border-slate-200 shadow-slate-200' : 'bg-slate-900 border-slate-800 shadow-black'
         }`}>
           <div className={`p-4 border-b flex justify-between items-center ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700'}`}>
-            <h3 className="font-bold text-sm">Notifications</h3>
-            {unreadCount > 0 && (
-              <button 
-                onClick={markAllAsRead}
-                className="text-xs font-semibold text-blue-500 hover:text-blue-600"
-              >
-                Mark all read
-              </button>
-            )}
+            <h3 className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>Notifications</h3>
+            <div className="flex gap-3">
+              {notifications.length > 0 && (
+                <button 
+                  onClick={clearAllNotifications}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600"
+                >
+                  Clear all
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button 
+                  onClick={markAllAsRead}
+                  className="text-xs font-semibold text-blue-500 hover:text-blue-600"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-sm opacity-50">
+              <div className={`p-8 text-center text-sm ${isLight ? 'text-slate-400' : 'text-slate-500 font-medium'}`}>
                 No notifications yet
               </div>
             ) : (
@@ -123,13 +152,14 @@ export default function NotificationBell() {
                       : isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/30'
                   } ${isLight ? 'border-slate-100' : 'border-slate-800'}`}
                 >
-                  <p className="font-bold text-sm mb-1">{n.title}</p>
-                  <p className={`text-xs mb-2 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <p className={`font-bold text-sm mb-1 ${isLight ? 'text-slate-900' : 'text-slate-100'}`}>{n.title}</p>
+                  <p className={`text-xs mb-2 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
                     {n.message}
                   </p>
-                  <p className="text-[10px] opacity-40">
+                  <p className={`text-[10px] font-medium ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
                     {new Date(n.created_at).toLocaleString()}
                   </p>
+
                 </div>
               ))
             )}

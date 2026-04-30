@@ -67,6 +67,13 @@ export default function CustomProjectForm() {
     }
     if (!formData.expectedDeadline) {
       newErrors.expectedDeadline = 'Expected deadline is required'
+    } else {
+      const selectedDate = new Date(formData.expectedDeadline)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (selectedDate < today) {
+        newErrors.expectedDeadline = 'Deadline cannot be in the past'
+      }
     }
     if (!formData.email.trim() || !formData.email.includes('@')) {
       newErrors.email = 'Valid email is required'
@@ -369,6 +376,7 @@ export default function CustomProjectForm() {
               <input
                 type="date"
                 name="expectedDeadline"
+                min={new Date().toISOString().split('T')[0]}
                 value={formData.expectedDeadline}
                 onChange={handleInputChange}
                 className={`w-full px-4 py-3 rounded-lg transition-all duration-300 border ${

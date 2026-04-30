@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -34,7 +35,7 @@ app.use(
 // CORS configuration
 app.use(
   cors({
-    origin: true, // Allow all origins in development
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -54,6 +55,8 @@ import adminRoutes from "./routes/admin.js";
 import customProjectRoutes from "./routes/custom-projects.js";
 import notificationRoutes from "./routes/notifications.js";
 import webhookRoutes from "./routes/webhook.js";
+import rolesRoutes from "./routes/roles.js";
+import settingsRoutes from "./routes/settings.js";
 
 // ─── IMPORTANT: Webhook must be mounted BEFORE express.json() ────────────────
 // Razorpay webhook requires the raw request body (Buffer) for HMAC verification.
@@ -62,6 +65,7 @@ app.use("/api/webhook", webhookRoutes);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Rate limiters with different strictness levels
 const limiter = rateLimit({
@@ -99,6 +103,7 @@ console.log("📁 Serving static files from:", uploadsPath);
 app.use("/uploads", express.static(uploadsPath));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin/users", authRoutes); // Admin user management endpoints share auth router
 app.use("/api/projects", projectRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/checkout", checkoutRoutes);
@@ -110,6 +115,8 @@ app.use("/api/admin/projects", adminRoutes);
 app.use("/api/custom-projects", customProjectRoutes);
 app.use("/api/admin/custom-projects", customProjectRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/roles", rolesRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Health check with database status
 app.get("/health", async (req, res) => {

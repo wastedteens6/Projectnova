@@ -22,22 +22,15 @@ interface Purchase {
 
 export default function AdminPurchases() {
   const { theme } = useTheme()
-  const isLight = theme === 'light'
+  const dk = theme !== 'light'
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
-  const userRole = localStorage.getItem('userRole')
 
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filterEmail, setFilterEmail] = useState('')
   const [filterProject, setFilterProject] = useState('')
-
-  // Redirect if not admin
-  if (userRole !== 'admin') {
-    window.location.href = '/auth/login'
-    return null
-  }
 
   const fetchPurchases = async () => {
     try {
@@ -47,7 +40,7 @@ export default function AdminPurchases() {
       })
 
       if (response.data?.success) {
-        setPurchases(response.data.data);
+        setPurchases(response.data.data)
       }
     } catch (error) {
       console.error('Error fetching purchases:', error)
@@ -57,11 +50,9 @@ export default function AdminPurchases() {
     }
   }
 
-  React.useEffect(() => {
-    if (token && userRole === 'admin') {
-      fetchPurchases()
-    }
-  }, [token, userRole])
+  useEffect(() => {
+    fetchPurchases()
+  }, [])
 
   const filteredPurchases = purchases.filter(p => {
     const emailMatch = p.userEmail.toLowerCase().includes(filterEmail.toLowerCase())
@@ -69,166 +60,104 @@ export default function AdminPurchases() {
     return emailMatch && projectMatch
   })
 
+  // ── Style shortcuts ───────────────────────────────────────────────────────
+  const surface  = dk ? 'bg-transparent text-white'       : 'bg-transparent text-slate-900'
+  const border   = dk ? 'border-slate-800/60'             : 'border-slate-200'
+  const headBg   = dk ? 'bg-slate-900/50'                 : 'bg-slate-50/50'
+  const muted    = dk ? 'text-slate-400'                  : 'text-slate-500'
+  const cardBg   = dk ? 'bg-slate-900/80 backdrop-blur-xl border-slate-800/60 shadow-xl shadow-slate-900/50' : 'bg-white border-slate-200 shadow-sm'
+  const inputBg  = dk ? 'bg-slate-900/50 border-slate-700/50 text-white placeholder-slate-500 focus:border-purple-500' : 'bg-white border-slate-200 text-slate-900 focus:border-purple-400'
+
   return (
-    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 pointer-events-none ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
-    }`}>
-      <div className="container max-w-7xl mx-auto pointer-events-auto">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className={`text-4xl font-bold mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-              All Purchases
-            </h1>
-            <p className={`${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-              Total purchases: {purchases.length}
-            </p>
+    <div className={`min-h-screen pointer-events-none ${surface}`}>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className={`border-b ${border} pointer-events-auto transition-all duration-300 ${dk ? 'bg-slate-900/50 backdrop-blur-md' : 'bg-white/50 backdrop-blur-md'}`}>
+        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-6 min-w-0">
+            <h1 className="text-lg font-bold whitespace-nowrap">Manage Purchases</h1>
+            <span className={`text-xs font-medium hidden md:inline ${muted}`}>{purchases.length} Total</span>
           </div>
-          <div className="flex gap-3 items-center">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => navigate(-1)}
-              title="Go back to previous page"
-              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-                isLight 
-                  ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
-                  : 'bg-slate-700 text-white hover:bg-slate-600'
-              }`}
-            >
-              <span>← Back</span>
-            </button>
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition border ${dk ? 'border-slate-700 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >← Back</button>
             <button
-              onClick={() => window.location.reload()}
+              onClick={fetchPurchases}
               disabled={refreshing}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-                refreshing
-                  ? 'opacity-50 cursor-not-allowed'
-                  : isLight
-                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                    : 'bg-blue-900/40 text-blue-400 hover:bg-blue-900/60'
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                refreshing ? 'opacity-50' : dk ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
               }`}
-              title="Reload page and refresh purchases"
             >
-              <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
-              Refresh
+              <span className={refreshing ? 'animate-spin' : ''}>🔄</span> Refresh
             </button>
           </div>
         </div>
+      </header>
 
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto px-6 py-6 pointer-events-auto">
         {/* Filters */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
+        <div className="flex gap-3 mb-4">
           <input
             type="text"
-            placeholder="Filter by user email..."
+            placeholder="Filter by email..."
             value={filterEmail}
             onChange={(e) => setFilterEmail(e.target.value)}
-            className={`px-4 py-2 rounded-lg border ${
-              isLight
-                ? 'border-slate-300 bg-white text-slate-900'
-                : 'border-slate-700 bg-slate-800 text-white'
-            }`}
+            className={`px-3 py-1.5 text-xs rounded-md border outline-none transition w-60 ${inputBg}`}
           />
           <input
             type="text"
             placeholder="Filter by project..."
             value={filterProject}
             onChange={(e) => setFilterProject(e.target.value)}
-            className={`px-4 py-2 rounded-lg border ${
-              isLight
-                ? 'border-slate-300 bg-white text-slate-900'
-                : 'border-slate-700 bg-slate-800 text-white'
-            }`}
+            className={`px-3 py-1.5 text-xs rounded-md border outline-none transition w-60 ${inputBg}`}
           />
         </div>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
-              <p className={isLight ? 'text-slate-600' : 'text-slate-400'}>Loading purchases...</p>
-            </div>
-          </div>
-        ) : (
-          /* Table */
-          <div className={`rounded-lg overflow-hidden border ${
-            isLight
-              ? 'border-slate-200 bg-white'
-              : 'border-slate-700 bg-slate-800'
-          }`}>
-            <table className="w-full">
-              <thead>
-                <tr className={`${
-                  isLight
-                    ? 'bg-slate-100 border-b border-slate-200'
-                    : 'bg-slate-900 border-b border-slate-700'
-                }`}>
-                  <th className={`px-6 py-3 text-left text-sm font-semibold ${
-                    isLight ? 'text-slate-700' : 'text-slate-300'
-                  }`}>User</th>
-                  <th className={`px-6 py-3 text-left text-sm font-semibold ${
-                    isLight ? 'text-slate-700' : 'text-slate-300'
-                  }`}>Project</th>
-                  <th className={`px-6 py-3 text-left text-sm font-semibold ${
-                    isLight ? 'text-slate-700' : 'text-slate-300'
-                  }`}>Tier</th>
-                  <th className={`px-6 py-3 text-left text-sm font-semibold ${
-                    isLight ? 'text-slate-700' : 'text-slate-300'
-                  }`}>Price</th>
-                  <th className={`px-6 py-3 text-left text-sm font-semibold ${
-                    isLight ? 'text-slate-700' : 'text-slate-300'
-                  }`}>Date</th>
+        {/* Table */}
+        <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${cardBg}`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className={`border-b ${border} ${headBg}`}>
+                <tr>
+                  <th className={`px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px] ${muted}`}>User</th>
+                  <th className={`px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px] ${muted}`}>Project</th>
+                  <th className={`px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px] ${muted}`}>Tier</th>
+                  <th className={`px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px] ${muted}`}>Price</th>
+                  <th className={`px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px] ${muted}`}>Date</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPurchases.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className={`px-6 py-8 text-center ${
-                      isLight ? 'text-slate-500' : 'text-slate-400'
-                    }`}>
-                      No purchases found
-                    </td>
-                  </tr>
+                {loading ? (
+                  <tr><td colSpan={5} className={`py-16 text-center text-xs ${muted}`}>Loading purchases…</td></tr>
+                ) : filteredPurchases.length === 0 ? (
+                  <tr><td colSpan={5} className={`py-16 text-center text-xs ${muted}`}>No purchases found</td></tr>
                 ) : (
                   filteredPurchases.map((purchase, idx) => (
-                    <tr
-                      key={idx}
-                      className={`border-t ${
-                        isLight
-                          ? 'border-slate-200 hover:bg-slate-50'
-                          : 'border-slate-700 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <td className={`px-6 py-4 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        <div>
-                          <p className="font-semibold">{purchase.userName}</p>
-                          <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                            {purchase.userEmail}
-                          </p>
-                        </div>
+                    <tr key={idx} className={`border-b ${border} ${dk ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors`}>
+                      <td className="px-4 py-3">
+                        <div className="font-bold">{purchase.userName}</div>
+                        <div className={`text-[10px] ${muted}`}>{purchase.userEmail}</div>
                       </td>
-                      <td className={`px-6 py-4 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        {purchase.projectTitle}
+                      <td className="px-4 py-3 font-medium">{purchase.projectTitle}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                          dk ? 'bg-slate-800/50 text-slate-300 border border-slate-700/50' : 'bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}>
+                          {purchase.tier}
+                        </span>
                       </td>
-                      <td className={`px-6 py-4 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        {purchase.tier}
-                      </td>
-                      <td className={`px-6 py-4 font-semibold ${
-                        isLight ? 'text-purple-600' : 'text-purple-400'
-                      }`}>
-                        ₹{purchase.price.toLocaleString()}
-                      </td>
-                      <td className={`px-6 py-4 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                        {purchase.purchaseDate}
-                      </td>
+                      <td className="px-4 py-3 font-bold text-emerald-500">₹{Number(purchase.price).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                      <td className={`px-4 py-3 text-[10px] ${muted}`}>{purchase.purchaseDate}</td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
           </div>
-        )}
+        </div>
       </div>
-
     </div>
   )
 }

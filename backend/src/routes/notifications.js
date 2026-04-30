@@ -67,4 +67,20 @@ router.patch('/read-all', verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/notifications/clear-all
+ */
+router.delete('/clear-all', verifyToken, async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM "Notification" WHERE user_id = $1',
+      [req.userId]
+    );
+    res.json({ success: true, message: 'All notifications cleared' });
+  } catch (err) {
+    console.error('Error clearing notifications:', err);
+    res.status(500).json({ success: false, message: 'Failed to clear notifications' });
+  }
+});
+
 export default router;

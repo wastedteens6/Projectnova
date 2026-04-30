@@ -22,6 +22,14 @@ try {
   console.error("❌ Razorpay init error:", err.message);
 }
 
+// ─── GET /api/checkout/config ────────────────────────────────────────────────
+// Public endpoint to get the Razorpay Key ID
+router.get("/config", (req, res) => {
+  res.json({
+    razorpayKeyId: process.env.RAZORPAY_KEY_ID || null,
+  });
+});
+
 // ─── POST /api/checkout/create-order ─────────────────────────────────────────
 // Production flow:
 //   1. Create Order in our DB with status='pending'
@@ -42,6 +50,9 @@ router.post("/create-order", verifyToken, async (req, res) => {
     }
     if (!Array.isArray(projectIds) || projectIds.length === 0) {
       return res.status(400).json({ error: "projectIds must be a non-empty array" });
+    }
+    if (amount < 100) {
+      return res.status(400).json({ error: "Minimum amount is ₹1 (100 paise)" });
     }
 
     if (!razorpay) {

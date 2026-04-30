@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
+import { 
+  HiStar, 
+  HiOutlineShoppingCart, 
+  HiOutlineArrowUpCircle, 
+  HiOutlineArrowDownTray 
+} from 'react-icons/hi2'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const getImageUrl = (path: string) => {
   if (!path) return ''
@@ -198,17 +205,21 @@ Thank you for your purchase!
     }`}>
       <div className="container max-w-7xl mx-auto">
         {/* Section Header */}
-        <div className="mb-12">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          className="mb-12"
+        >
           <div className="flex items-center gap-3 mb-4">
-            <span className={`text-3xl`}>⭐</span>
-            <h2 className={`text-4xl font-bold transition-colors duration-300 ${
+            <HiStar className={`text-4xl ${isLight ? 'text-purple-600' : 'text-purple-400'}`} />
+            <h2 className={`text-4xl font-black transition-colors duration-300 ${
               isLight ? 'text-slate-900' : 'text-white'
             }`}>Featured Projects</h2>
           </div>
-          <p className={`text-lg transition-colors duration-300 ${
+          <p className={`text-lg font-medium transition-colors duration-300 ${
             isLight ? 'text-slate-600' : 'text-slate-300'
           }`}>Trending and most sought-after academic projects</p>
-        </div>
+        </motion.div>
 
         {/* Featured Projects Grid - Single Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -245,14 +256,20 @@ Thank you for your purchase!
                   )}
 
                   {/* Add to Cart Symbol - Top Right */}
-                  <div className="absolute top-3 right-3">
-                    <button
+                  <div className="absolute top-3 right-3 z-10">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
                       onClick={(e) => handleAddToCart(e, project)}
-                      className="text-3xl hover:scale-125 transition-transform duration-200"
+                      className={`p-3 rounded-xl shadow-xl backdrop-blur-md transition-all duration-300 ${
+                        isLight 
+                          ? 'bg-white/90 text-purple-600 hover:bg-purple-600 hover:text-white' 
+                          : 'bg-slate-900/90 text-cyan-400 hover:bg-cyan-500 hover:text-white'
+                      }`}
                       title="Add to Cart"
                     >
-                      🛒
-                    </button>
+                      <HiOutlineShoppingCart className="w-5 h-5" />
+                    </motion.button>
                   </div>
 
                   {/* Featured Badge */}
@@ -325,21 +342,23 @@ Thank you for your purchase!
                   }`}>
                     {isProjectPurchased(project.id) ? (
                       // Show Upgrade and Download Receipt buttons for purchased projects
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
+                      <div className="grid grid-cols-2 gap-3">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => handleUpgradePackage(e, project)}
-                          className="px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-blue-500/30"
-                          title="Upgrade to a higher tier"
+                          className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm shadow-lg shadow-blue-500/30"
                         >
-                          ⬆️ Upgrade
-                        </button>
-                        <button
+                          <HiOutlineArrowUpCircle className="w-5 h-5" /> Upgrade
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => handleDownloadReceipt(e, project)}
-                          className="px-4 py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-green-500/30"
-                          title="Download purchase receipt"
+                          className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm shadow-lg shadow-green-500/30"
                         >
-                          📥 Receipt
-                        </button>
+                          <HiOutlineArrowDownTray className="w-5 h-5" /> Receipt
+                        </motion.button>
                       </div>
                     ) : (
                       // Show Buy Now button for non-purchased projects

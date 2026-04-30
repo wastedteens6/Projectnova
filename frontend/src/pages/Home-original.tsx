@@ -6,7 +6,7 @@ export default function Home() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const [displayedText, setDisplayedText] = useState('')
-  const fullText = 'Wasted Teens'
+  const fullText = 'Wasted Teenagers'
   const [textIndex, setTextIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
 
@@ -67,7 +67,7 @@ export default function Home() {
                   : 'text-transparent bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text'
               }`}>
                 {displayedText}
-                <span className="animate-bounce">☠️</span>
+                {/* <span className="animate-bounce">☠️</span> */}
               </h1>
             </div>
 

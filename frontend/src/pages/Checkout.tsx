@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
+import { useSettings } from '../context/SettingsContext'
 
 interface CartItem {
   id: string
@@ -16,6 +17,7 @@ interface CartItem {
 
 export default function Checkout() {
   const { theme } = useTheme()
+  const { settings } = useSettings()
   const isLight = theme === 'light'
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -31,6 +33,8 @@ export default function Checkout() {
   const [successAlert, setSuccessAlert] = useState({ show: false, message: '' })
   const [errorAlert, setErrorAlert] = useState({ show: false, message: '' })
   const [scriptLoaded, setScriptLoaded] = useState(false)
+  const [razorpayKey, setRazorpayKey] = useState('')
+  const [agreed, setAgreed] = useState(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -147,6 +151,21 @@ export default function Checkout() {
     load()
   }, [navigate, searchParams])
 
+  // Fetch Razorpay Config
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/checkout/config')
+        if (res.data.razorpayKeyId) {
+          setRazorpayKey(res.data.razorpayKeyId)
+        }
+      } catch (err) {
+        console.error('Failed to fetch razorpay config:', err)
+      }
+    }
+    fetchConfig()
+  }, [])
+
   // Load Razorpay script
   useEffect(() => {
     if (document.getElementById('razorpay-script')) {
@@ -182,6 +201,12 @@ export default function Checkout() {
       return
     }
 
+    if (!agreed) {
+      setErrorAlert({ show: true, message: 'Please agree to the Terms and Conditions' })
+      setLoading(false)
+      return
+    }
+
     if (selectedPayment === 'razorpay' && !scriptLoaded) {
       setErrorAlert({ show: true, message: 'Razorpay is loading... Please try again' })
       setLoading(false)
@@ -198,10 +223,10 @@ export default function Checkout() {
       // ── Razorpay ──
       if (selectedPayment === 'razorpay') {
         const options = {
-          key: 'rzp_test_1DP5mmOlF5G1ag',
+          key: razorpayKey || 'rzp_test_1DP5mmOlF5G1ag', // Fallback but should use state
           amount: totalPrice * 100,
           currency: 'INR',
-          name: 'WastedTeens☠️',
+          name: settings.siteName || 'ProjectNova',
           description: cartItems[0]?.name || 'Project Purchase',
           order_id: res.data.orderId,
           handler: async (response: any) => {
@@ -242,11 +267,27 @@ export default function Checkout() {
           },
           prefill: { email, contact: phone },
           theme: { color: isLight ? '#9333ea' : '#06b6d4' },
+          modal: {
+            ondismiss: () => {
+              setLoading(false)
+              setErrorAlert({ show: true, message: 'Payment cancelled by user' })
+              setTimeout(() => setErrorAlert({ show: false, message: '' }), 3000)
+            }
+          }
         }
         // @ts-ignore
         if (window.Razorpay) {
           // @ts-ignore
           const rzp = new window.Razorpay(options)
+          
+          rzp.on('payment.failed', (response: any) => {
+            setErrorAlert({ 
+              show: true, 
+              message: `Payment failed: ${response.error.description}` 
+            })
+            setLoading(false)
+          })
+
           rzp.open()
         } else {
           setErrorAlert({ show: true, message: 'Razorpay not available. Please refresh.' })
@@ -350,9 +391,24 @@ export default function Checkout() {
                     required
                   />
                 </div>
+
+                {/* Terms and Conditions */}
+                <div className="flex items-start gap-3 py-2">
+                  <input
+                    type="checkbox"
+                    id="agreed"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <label htmlFor="agreed" className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                    I agree to the <span className="text-purple-500 font-semibold cursor-pointer hover:underline">Terms and Conditions</span> and <span className="text-purple-500 font-semibold cursor-pointer hover:underline">Refund Policy</span>.
+                  </label>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={loading || pricesFetching}
+                  disabled={loading || pricesFetching || !agreed}
                   className={`w-full py-3 rounded-lg font-bold transition transform hover:scale-105 bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:shadow-lg disabled:opacity-50`}
                 >
                   {pricesFetching ? 'Loading...' : loading ? 'Processing...' : `Pay ₹${totalPrice}`}

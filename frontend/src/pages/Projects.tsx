@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { HiOutlineShoppingCart, HiArrowUpCircle, HiArrowDownTray, HiMagnifyingGlass } from 'react-icons/hi2'
 
 const getImageUrl = (path: string) => {
   if (!path) return ''
@@ -438,10 +439,12 @@ Thank you for your purchase!
                         <div className="absolute top-3 right-3">
                           <button
                             onClick={(e) => handleAddToCart(e, project)}
-                            className="text-3xl hover:scale-125 transition-transform duration-200"
+                            className={`p-2.5 rounded-full transition-all duration-200 shadow-lg ${
+                              isLight ? 'bg-white text-indigo-600 hover:bg-indigo-50' : 'bg-slate-800 text-indigo-400 hover:bg-slate-700'
+                            }`}
                             title="Add to Cart"
                           >
-                            🛒
+                            <HiOutlineShoppingCart className="w-6 h-6" />
                           </button>
                         </div>
 
@@ -507,17 +510,17 @@ Thank you for your purchase!
                             <div className="grid grid-cols-2 gap-2">
                               <button
                                 onClick={(e) => handleUpgradePackage(e, project)}
-                                className="px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-blue-500/30"
+                                className="px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
                                 title="Upgrade to a higher tier"
                               >
-                                ⬆️ Upgrade
+                                <HiArrowUpCircle className="w-4 h-4" /> Upgrade
                               </button>
                               <button
                                 onClick={(e) => handleDownloadReceipt(e, project)}
-                                className="px-4 py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-green-500/30"
+                                className="px-4 py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
                                 title="Download purchase receipt"
                               >
-                                📥 Receipt
+                                <HiArrowDownTray className="w-4 h-4" /> Receipt
                               </button>
                             </div>
                           ) : (
@@ -540,7 +543,9 @@ Thank you for your purchase!
               <div className={`text-center py-20 rounded-2xl border-2 border-dashed ${
                 isLight ? 'border-slate-200 bg-slate-50' : 'border-slate-700/50 bg-slate-900/20'
               }`}>
-                <div className="text-5xl mb-4">🔍</div>
+                <div className="text-5xl mb-4 flex justify-center">
+                  <HiMagnifyingGlass className="opacity-40" />
+                </div>
                 <p className={`text-lg font-semibold ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>No projects found</p>
                 <p className={`text-sm mt-2 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                   Try adjusting your search or filter options.

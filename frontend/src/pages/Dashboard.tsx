@@ -8,6 +8,7 @@ export default function Dashboard() {
   const isLight = theme === 'light'
   const navigate = useNavigate()
 
+  const [activeTab, setActiveTab] = useState('overview')
   const [userName, setUserName] = useState('User')
   const [userEmail, setUserEmail] = useState('')
   const [purchasedProjects, setPurchasedProjects] = useState<any[]>([])
@@ -15,6 +16,17 @@ export default function Dashboard() {
   const [cartItems, setCartItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  // MFA state
+  const [mfaEnabled, setMfaEnabled] = useState(false)
+  const [mfaSetupStep, setMfaSetupStep] = useState<'idle' | 'scan' | 'verify' | 'done'>('idle')
+  const [mfaQr, setMfaQr] = useState('')
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaDisableCode, setMfaDisableCode] = useState('')
+  const [mfaLoading, setMfaLoading] = useState(false)
+  const [mfaError, setMfaError] = useState('')
+  const [mfaSuccess, setMfaSuccess] = useState('')
 
   const fetchUserData = async () => {
     try {
@@ -60,27 +72,72 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    // Get cart items from localStorage — deduplicate by project id
+    const token = localStorage.getItem('token')
+    if (!token) return
+    fetch(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.user?.mfa_enabled !== undefined) setMfaEnabled(d.user.mfa_enabled) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     const storedCart = localStorage.getItem('cart')
     if (storedCart) {
       try {
         const parsed = JSON.parse(storedCart)
-        // Keep only the last entry per project id (most recent tier selection wins)
         const seen = new Map<string, any>()
-        for (const item of parsed) {
-          seen.set(String(item.id), item)
-        }
+        for (const item of parsed) seen.set(String(item.id), item)
         const deduped = Array.from(seen.values())
         setCartItems(deduped)
-        // Persist deduped cart back so it's clean
-        if (deduped.length !== parsed.length) {
-          localStorage.setItem('cart', JSON.stringify(deduped))
-        }
-      } catch (err) {
-        console.error('Error parsing cart:', err)
-      }
+      } catch (err) { console.error('Error parsing cart:', err) }
     }
   }, [])
+
+  const handleMfaSetup = async () => {
+    setMfaLoading(true); setMfaError(''); setMfaSuccess('')
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/auth/mfa/setup`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      setMfaQr(data.qrDataUrl); setMfaSecret(data.secret); setMfaSetupStep('scan')
+    } catch (err: any) { setMfaError(err.message || 'Setup failed') } finally { setMfaLoading(false) }
+  }
+
+  const handleMfaVerifySetup = async () => {
+    if (mfaCode.length !== 6) return
+    setMfaLoading(true); setMfaError('')
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/auth/mfa/verify-setup`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: mfaCode }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      setMfaEnabled(true); setMfaSetupStep('done'); setMfaSuccess('MFA enabled!'); setMfaCode('')
+    } catch (err: any) { setMfaError(err.message || 'Invalid code') } finally { setMfaLoading(false) }
+  }
+
+  const handleMfaDisable = async () => {
+    if (mfaDisableCode.length !== 6) return
+    setMfaLoading(true); setMfaError('')
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${API_BASE_URL}/auth/mfa/disable`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: mfaDisableCode }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      setMfaEnabled(false); setMfaSetupStep('idle'); setMfaDisableCode(''); setMfaSuccess('MFA disabled.')
+    } catch (err: any) { setMfaError(err.message || 'Invalid code') } finally { setMfaLoading(false) }
+  }
 
   const handleRemoveFromCart = (id: string) => {
     const updatedCart = cartItems.filter(item => item.id !== id)
@@ -88,386 +145,323 @@ export default function Dashboard() {
     localStorage.setItem('cart', JSON.stringify(updatedCart))
   }
 
-  const handleBuyNow = (item: any) => {
-    // Store this single item in sessionStorage so checkout charges only it
-    sessionStorage.setItem('pendingCheckout', JSON.stringify(item))
-    navigate('/checkout')
-  }
-
-  const handleCheckoutAll = () => {
-    // Navigate to checkout without itemId to checkout all items
-    navigate('/checkout')
-  }
-
   const handleUpgrade = (project: any) => {
-    // Store upgrade context and navigate to project detail with upgrade flag
     const upgradeData = {
       projectId: project.projectId,
       projectSlug: project.slug,
       projectTitle: project.name,
       currentTier: project.tier,
       currentTierLevel: project.currentTierLevel,
-      currentPrice: project.price / 100, // Convert paise to rupees
+      currentPrice: project.price / 100,
       availableTiers: project.tiers || []
     }
     localStorage.setItem('upgradeContext', JSON.stringify(upgradeData))
     navigate(`/projects/${project.slug}?upgrade=true`)
   }
 
-  // Calculate total spent based on purchased projects
   const totalSpent = purchasedProjects.reduce((acc: number, curr: any) => {
-    // Convert from paise to rupees (divide by 100)
-    // If price is already in rupees (string format), use as-is
-    let priceInRupees = 0;
-    
-    if (typeof curr.price === 'number') {
-      // If it's a number and > 100, assume it's in paise
-      priceInRupees = curr.price > 100 ? curr.price / 100 : curr.price;
-    } else {
-      // Parse string price
-      const priceStr = curr.price?.toString() || '0';
-      const numericPrice = parseInt(priceStr.replace(/[^0-9]/g, ''), 10) || 0;
-      // If number is > 100, assume it's paise
-      priceInRupees = numericPrice > 100 ? numericPrice / 100 : numericPrice;
-    }
-    
-    return acc + priceInRupees;
+    let price = typeof curr.price === 'number' ? (curr.price > 100 ? curr.price / 100 : curr.price) : 0
+    return acc + price
   }, 0)
 
-  const stats = [
-    { label: 'Purchased Projects', value: purchasedProjects.length.toString(), icon: '📦', color: 'from-purple-600 to-pink-600' },
-    { label: 'Custom Requests', value: customRequests.length.toString(), icon: '💡', color: 'from-amber-500 to-orange-600' },
-    { label: 'Total Spent', value: `₹${totalSpent.toLocaleString()}`, icon: '💰', color: 'from-green-600 to-emerald-600' }
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'projects', label: 'My Projects', icon: '📦' },
+    { id: 'requests', label: 'Custom Requests', icon: '🎨' },
+    { id: 'cart', label: 'Cart', icon: '🛒', count: cartItems.length },
+    { id: 'security', label: 'Security', icon: '🔐' },
   ]
 
-  // Render loading state
+  // Styles
+  const cardBg = isLight ? 'bg-white border-slate-200' : 'bg-slate-900/60 backdrop-blur-xl border-slate-800'
+  const muted  = isLight ? 'text-slate-500' : 'text-slate-400'
+  const heading = isLight ? 'text-slate-900' : 'text-white'
+
   if (loading) {
     return (
-      <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 bg-transparent`}>
-        <div className="container max-w-6xl mx-auto">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
-              <p className={isLight ? 'text-slate-600' : 'text-slate-400'}>Loading your dashboard...</p>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
       </div>
     )
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 px-4 transition-all duration-300 w-full pointer-events-none ${
-      isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
-    }`}>
-      <div className="container max-w-6xl mx-auto pointer-events-auto">
-        {/* Header with User Name and Refresh Button */}
-        <div className="flex justify-between items-start mb-12">
-          <div>
-            <h1 className="text-5xl font-black mb-2">
-              <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                Welcome, {userName}!
-              </span>
-            </h1>
-            <p className={`transition-colors duration-300 ${
-              isLight ? 'text-slate-600' : 'text-slate-400'
-            }`}>Here is your account overview and purchased projects</p>
-          </div>
-          <button
-            onClick={() => window.location.reload()}
-            disabled={refreshing}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              refreshing
-                ? 'opacity-50 cursor-not-allowed'
-                : isLight
-                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                  : 'bg-cyan-900/40 text-cyan-400 hover:bg-cyan-900/60'
-            }`}
-            title="Reload page and refresh dashboard data"
-          >
-            <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
-            Refresh
-          </button>
-        </div>
+    <div className={`min-h-screen pt-20 pb-12 px-6 transition-all duration-300 ${isLight ? 'bg-slate-50' : 'bg-transparent text-white'}`}>
+      <div className="max-w-7xl mx-auto">
         
-        {/* Stats Grid */}
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
-          {stats.map((stat, i) => (
-            <div key={i} className={`backdrop-blur-lg border rounded-2xl p-8 hover:border-slate-600/50 transition group duration-300 ${
-              isLight
-                ? 'border-slate-200 bg-slate-50/40'
-                : 'border-slate-700/50 bg-slate-900/40'
-            }`}>
-              <div className="text-4xl mb-4 group-hover:scale-110 transition">{stat.icon}</div>
-              <p className={`mb-2 text-sm transition-colors duration-300 ${
-                isLight ? 'text-slate-600' : 'text-slate-400'
-              }`}>{stat.label}</p>
-              <p className={`text-4xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
-                {stat.value}
-              </p>
-            </div>
-          ))}
-          
-          <div className={`backdrop-blur-lg border rounded-2xl p-8 hover:border-slate-600/50 transition group duration-300 ${
-              isLight ? 'border-slate-200 bg-slate-50/40' : 'border-slate-700/50 bg-slate-900/40'
-          }`}>
-            <div className="text-4xl mb-4 group-hover:scale-110 transition">🛒</div>
-            <p className={`mb-2 text-sm transition-colors duration-300 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Items in Cart</p>
-            <p className={`text-4xl font-black bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent`}>
-              {cartItems.length}
-            </p>
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-black mb-1">
+              Welcome back, <span className="bg-gradient-to-r from-purple-500 to-cyan-500 bg-clip-text text-transparent">{userName}</span>
+            </h1>
+            <p className={`text-sm ${muted}`}>{userEmail} • Student Dashboard</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fetchUserData()}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                isLight ? 'bg-white border border-slate-200 hover:bg-slate-50' : 'bg-slate-900 border border-slate-800 hover:bg-slate-800'
+              }`}
+            >
+              <span className={refreshing ? 'animate-spin' : ''}>🔄</span> {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
         </div>
 
-        {/* Your Cart Section */}
-        <div className={`backdrop-blur-lg border rounded-2xl p-8 mb-8 transition-all duration-300 ${
-          isLight ? 'border-purple-200 bg-purple-50/50' : 'border-cyan-700/30 bg-slate-900/40'
-        }`}>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className={`text-2xl font-bold transition-colors duration-300 ${isLight ? 'text-purple-600' : 'text-cyan-400'}`}>Your Cart</h2>
-            {cartItems.length > 0 && (
-              <button onClick={handleCheckoutAll} className="px-6 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105">
-                🛒 Checkout All ({cartItems.length})
-              </button>
-            )}
-          </div>
+        <div className="grid lg:grid-cols-[240px_1fr] gap-8 items-start">
           
-          {cartItems.length === 0 ? (
-            <div className={`text-center py-8 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-              <p>Your cart is empty.</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {cartItems.map((item, i) => (
-                <div key={i} className={`relative p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                  isLight
-                    ? 'bg-white border-slate-200 hover:border-purple-300 hover:shadow-purple-200/50'
-                    : item.isUpgrade
-                      ? 'bg-slate-800/50 border-amber-700/50 hover:border-amber-500/50 hover:shadow-amber-900/50'
-                      : 'bg-slate-800/50 border-slate-700 hover:border-cyan-500/50 hover:shadow-cyan-900/50'
-                }`}>
-                  <div className="absolute top-4 right-4">
-                    {item.isUpgrade && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded ${
-                      isLight
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
-                    }`}>⬆ Upgrade</span>}
+          {/* ── Sidebar Navigation ────────────────────────────────────────────── */}
+          <aside className={`p-2 rounded-2xl border ${cardBg} hidden lg:block`}>
+            <div className="space-y-1">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                    activeTab === tab.id
+                      ? (isLight ? 'bg-purple-600 text-white shadow-lg shadow-purple-200' : 'bg-purple-600 text-white shadow-lg shadow-purple-900/40')
+                      : (isLight ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-800')
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span>{tab.icon}</span>
+                    {tab.label}
                   </div>
-                  
-                  {item.image ? (
-                    <img src={item.image.startsWith('http') ? item.image : `http://localhost:5000${item.image}`} alt={item.name} className="w-12 h-12 rounded-xl object-cover mb-4" />
-                  ) : (
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-                      isLight ? 'bg-purple-100' : item.isUpgrade ? 'bg-amber-900/30' : 'bg-slate-900'
-                    }`}>{item.isUpgrade ? '⬆' : '🛍️'}</div>
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20' : 'bg-purple-500 text-white'}`}>
+                      {tab.count}
+                    </span>
                   )}
-                  
-                  <h3 className={`text-lg font-black mb-1 line-clamp-1 ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h3>
-                  <p className={`text-sm font-semibold mb-4 ${
-                    item.isUpgrade
-                      ? isLight ? 'text-amber-600' : 'text-amber-400'
-                      : isLight ? 'text-purple-600' : 'text-cyan-400'
-                  }`}>
-                    {item.isUpgrade 
-                      ? `Upgrade: ${item.upgradedFrom} → ${item.tier}`
-                      : item.tier
-                    }
-                  </p>
-                  
-                  {item.isUpgrade && (
-                    <div className={`mb-4 p-3 rounded-lg text-xs ${
-                      isLight
-                        ? 'bg-amber-50 border border-amber-200 text-amber-800'
-                        : 'bg-amber-900/20 border border-amber-700/50 text-amber-300'
-                    }`}>
-                      <p>Already paid: ₹{item.upgradedFromPrice}</p>
-                      <p className="font-bold mt-1">Pay now: ₹{item.price}</p>
-                    </div>
-                  )}
-                  
-                  <div className={`flex items-end justify-between pt-4 border-t ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
-                    <div>
-                      <p className={`text-xs uppercase tracking-wider font-bold mb-1 ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {item.isUpgrade ? 'Upgrade Cost' : 'Price'}
-                      </p>
-                      <p className={`text-xl font-black ${
-                        item.isUpgrade
-                          ? isLight ? 'text-amber-600' : 'text-amber-400'
-                          : isLight ? 'text-slate-800' : 'text-slate-200'
-                      }`}>₹{item.price}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleBuyNow(item)}
-                        className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:bg-green-600 hover:scale-105 transition font-semibold text-sm flex items-center gap-1"
-                        title="Buy this item now"
-                      >
-                        <span>💳</span> Buy Now
-                      </button>
-                      <button
-                        onClick={() => handleRemoveFromCart(item.id)}
-                        className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:scale-105 transition"
-                        title="Remove from cart"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                </button>
               ))}
             </div>
-          )}
-        </div>
+          </aside>
 
-        {/* Purchased Projects */}
-        <div className={`backdrop-blur-lg border rounded-2xl p-8 transition-all duration-300 ${
-          isLight
-            ? 'border-slate-200 bg-slate-50/40'
-            : 'border-slate-700/50 bg-slate-900/40'
-        }`}>
-          <h2 className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
-            isLight ? 'text-purple-600' : 'text-cyan-400'
-          }`}>Your Purchased Projects</h2>
-          
-          {purchasedProjects.length === 0 ? (
-            <div className="text-center py-12">
-              <p className={`mb-4 transition-colors duration-300 ${
-                isLight ? 'text-slate-600' : 'text-slate-400'
-              }`}>You haven't purchased any projects yet</p>
-              <a href="/projects" className="inline-block px-6 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg hover:shadow-purple-500/50 transition">
-                Browse Projects
-              </a>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {purchasedProjects.map((project, i) => (
-                <div key={i} className={`group rounded-2xl border overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
-                  isLight
-                    ? 'bg-white border-slate-100 hover:border-slate-200'
-                    : 'bg-slate-900/40 border-slate-700/50 hover:border-slate-600'
-                }`}>
-                  {/* Browse Page Style Image Header */}
-                  <div className={`relative h-48 overflow-hidden ${isLight ? 'bg-slate-100' : 'bg-slate-800'}`}>
-                    {project.image ? (
-                      <img src={project.image.startsWith('http') ? project.image : `http://localhost:5000${project.image}`} alt={project.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg className="w-16 h-16 opacity-60" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" /></svg>
+          {/* Mobile Navigation */}
+          <div className="lg:hidden flex overflow-x-auto gap-2 pb-4 no-scrollbar">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : (isLight ? 'bg-white border border-slate-200 text-slate-600' : 'bg-slate-900 border border-slate-800 text-slate-400')
+                }`}
+              >
+                <span>{tab.icon}</span> {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Main Content Area ─────────────────────────────────────────────── */}
+          <main className="space-y-6">
+            
+            {/* TAB: Overview */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Total Purchases', value: purchasedProjects.length, icon: '📦', color: 'from-blue-500 to-indigo-600' },
+                    { label: 'Custom Requests', value: customRequests.length, icon: '💡', color: 'from-amber-500 to-orange-600' },
+                    { label: 'Total Invested', value: `₹${totalSpent.toLocaleString()}`, icon: '💰', color: 'from-emerald-500 to-green-600' },
+                  ].map((stat, i) => (
+                    <div key={i} className={`p-6 rounded-2xl border ${cardBg}`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <span className="text-2xl p-2 rounded-xl bg-slate-500/10">{stat.icon}</span>
                       </div>
-                    )}
-                    {/* Hovering Tier Badge */}
-                    <div className="absolute top-3 left-3">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded shadow-sm uppercase tracking-wide ${
-                        isLight ? 'bg-purple-100 text-purple-700' : 'bg-cyan-900/80 text-cyan-300 backdrop-blur-sm'
-                      }`}>
-                        {project.tier || 'Level 1'}
-                      </span>
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${muted}`}>{stat.label}</p>
+                      <p className={`text-2xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>{stat.value}</p>
                     </div>
+                  ))}
+                </div>
+
+                <div className={`p-6 rounded-2xl border ${cardBg}`}>
+                  <h3 className="text-sm font-bold mb-6 flex items-center gap-2">
+                    <span className="w-1.5 h-4 bg-purple-500 rounded-full"></span>
+                    Recent Activity
+                  </h3>
+                  {purchasedProjects.length === 0 ? (
+                    <p className={`text-center py-12 text-sm ${muted}`}>No recent activity to show.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {purchasedProjects.slice(0, 3).map((p, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-500/5 border border-slate-500/10">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-lg">📦</div>
+                            <div>
+                              <p className="text-sm font-bold truncate max-w-[200px]">{p.name}</p>
+                              <p className={`text-[10px] ${muted}`}>{p.date}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-green-500">₹{p.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: My Projects */}
+            {activeTab === 'projects' && (
+              <div className="grid md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                {purchasedProjects.length === 0 ? (
+                  <div className={`col-span-full py-20 text-center rounded-2xl border border-dashed ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
+                    <p className={muted}>You haven't purchased any projects yet.</p>
+                    <button onClick={() => navigate('/projects')} className="mt-4 text-purple-500 font-bold text-sm">Browse catalog →</button>
                   </div>
-                  
-                  {/* Card Content & Action Area */}
-                  <div className={`p-5 flex flex-col h-[calc(100%-12rem)] ${isLight ? 'bg-white' : 'bg-slate-900'}`}>
-                    <div className="flex justify-between items-start mb-1">
-                       <h3 className={`font-bold text-lg line-clamp-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>{project.name || 'Project'}</h3>
-                    </div>
-                    {/* Date Purchased */}
-                    <p className={`text-xs mb-4 font-medium ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Purchased: {project.date || 'N/A'}</p>
-                    
-                    <div className={`mt-auto pt-4 border-t ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
-                      <div className="flex justify-between items-center mb-4">
-                        <div>
-                          <p className={`text-xs uppercase font-bold mb-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Amount Paid</p>
-                          <p className={`text-xl font-black ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
-                            ₹{(() => {
-                              const price = typeof project.price === 'number' ? (project.price > 100 ? project.price / 100 : project.price).toLocaleString() : project.price || '0';
-                              return price;
-                            })()}
-                          </p>
+                ) : (
+                  purchasedProjects.map((p, i) => (
+                    <div key={i} className={`group rounded-2xl border overflow-hidden transition-all hover:border-purple-500/50 ${cardBg}`}>
+                      <div className="aspect-video relative overflow-hidden bg-slate-800">
+                        {p.image ? (
+                          <img src={p.image.startsWith('http') ? p.image : `http://localhost:5000${p.image}`} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">📦</div>
+                        )}
+                        <div className="absolute top-3 right-3 px-2 py-1 rounded bg-black/50 backdrop-blur-md text-[10px] font-bold text-white uppercase">{p.tier}</div>
+                      </div>
+                      <div className="p-4">
+                        <h4 className="font-bold text-sm mb-1 line-clamp-1">{p.name}</h4>
+                        <p className={`text-[10px] mb-4 ${muted}`}>Purchased: {p.date}</p>
+                        <div className="flex gap-2">
+                          <a 
+                            href={p.driveLink || '#'} target="_blank" rel="noreferrer"
+                            className="flex-1 py-2 rounded-lg bg-green-600 text-white text-xs font-bold text-center hover:bg-green-500 transition"
+                          >Access</a>
+                          <button 
+                            onClick={() => handleUpgrade(p)}
+                            className="flex-1 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 transition"
+                          >Upgrade</button>
                         </div>
                       </div>
-                      
-                      {/* Grid Action Buttons */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <a
-                          href={(() => {
-                            if (project.driveLink) return project.driveLink
-                            const tiers: any[] = project.tiers || []
-                            const currentLevel = project.currentTierLevel || 1
-                            const match = tiers.find((t: any) => Number(t.level) === Number(currentLevel))
-                            return match?.drive_link || '#'
-                          })()}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-green-500/30"
-                          title={`Access tier ${project.currentTierLevel || 1}`}
-                        >
-                          📥 Access
-                        </a>
-                        <button
-                          onClick={() => handleUpgrade(project)}
-                          className="flex items-center justify-center px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold text-sm hover:scale-105 transition shadow-lg shadow-blue-500/30"
-                          title="Upgrade"
-                        >
-                          ⬆️ Upgrade
-                        </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB: Custom Requests */}
+            {activeTab === 'requests' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-lg font-bold">Custom Projects</h2>
+                  <button onClick={() => navigate('/projects/custom')} className="text-xs font-bold text-purple-500">+ Request New</button>
+                </div>
+                {customRequests.length === 0 ? (
+                  <div className={`py-20 text-center rounded-2xl border border-dashed ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
+                    <p className={muted}>No custom requests found.</p>
+                  </div>
+                ) : (
+                  customRequests.map((req, i) => (
+                    <div key={i} className={`p-5 rounded-2xl border ${cardBg}`}>
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-bold text-sm">{req.subject}</h4>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                          req.status === 'approved' ? 'bg-green-500/10 text-green-500' :
+                          req.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
+                        }`}>{req.status}</span>
+                      </div>
+                      <p className={`text-xs mb-4 line-clamp-2 ${muted}`}>{req.description}</p>
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-500/10">
+                        <span className={`text-[10px] ${muted}`}>Requested: {new Date(req.created_at).toLocaleDateString()}</span>
+                        {req.admin_notes && <span className="text-[10px] text-purple-500 font-bold">Has Admin Notes</span>}
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB: Cart */}
+            {activeTab === 'cart' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                {cartItems.length === 0 ? (
+                  <div className={`py-20 text-center rounded-2xl border border-dashed ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
+                    <p className={muted}>Your cart is empty.</p>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Custom Project Requests */}
-        <div className={`backdrop-blur-lg border rounded-2xl p-8 mt-8 transition-all duration-300 ${
-          isLight
-            ? 'border-amber-200 bg-amber-50/40'
-            : 'border-amber-700/30 bg-slate-900/40'
-        }`}>
-          <h2 className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
-            isLight ? 'text-amber-600' : 'text-amber-400'
-          }`}>Your Custom Project Requests</h2>
-          
-          {customRequests.length === 0 ? (
-            <div className={`text-center py-8 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-              <p>You haven't submitted any custom project requests yet.</p>
-              <a href="/projects/custom" className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg font-bold hover:shadow-lg transition">
-                Request Custom Project
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {customRequests.map((req, i) => (
-                <div key={i} className={`p-6 rounded-xl border transition-all ${
-                  isLight ? 'bg-white border-slate-100' : 'bg-slate-800/50 border-slate-700'
-                }`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg">{req.subject}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                      req.status === 'approved' ? 'bg-green-500/20 text-green-500' :
-                      req.status === 'rejected' ? 'bg-red-500/20 text-red-500' :
-                      req.status === 'revived' ? 'bg-blue-500/20 text-blue-500' :
-                      'bg-yellow-500/20 text-yellow-500'
-                    }`}>
-                      {req.status}
-                    </span>
+                ) : (
+                  <div className="space-y-4">
+                    {cartItems.map((item, i) => (
+                      <div key={i} className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${cardBg}`}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-slate-500/10 flex items-center justify-center text-xl">🛒</div>
+                          <div>
+                            <h4 className="font-bold text-sm truncate max-w-[150px] sm:max-w-none">{item.name}</h4>
+                            <p className={`text-[10px] ${muted}`}>{item.tier} {item.isUpgrade && '• Upgrade'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-black">₹{item.price}</span>
+                          <button onClick={() => handleRemoveFromCart(item.id)} className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition">✕</button>
+                        </div>
+                      </div>
+                    ))}
+                    <button 
+                      onClick={() => navigate('/checkout')}
+                      className="w-full py-3 rounded-2xl bg-purple-600 text-white font-bold hover:bg-purple-500 transition shadow-lg shadow-purple-900/40"
+                    >Checkout All (₹{cartItems.reduce((acc, curr) => acc + curr.price, 0)})</button>
                   </div>
-                  <p className={`text-sm mb-4 line-clamp-2 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                    {req.description}
-                  </p>
-                  {req.admin_notes && (
-                    <div className={`p-3 rounded-lg text-xs ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-900/50 border border-slate-700'}`}>
-                      <p className="font-bold mb-1 uppercase tracking-tight opacity-70">Admin Notes:</p>
-                      <p className={isLight ? 'text-slate-700' : 'text-slate-300'}>{req.admin_notes}</p>
+                )}
+              </div>
+            )}
+
+            {/* TAB: Security */}
+            {activeTab === 'security' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className={`p-6 rounded-2xl border ${cardBg}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-2xl">🔐</span>
+                    <div>
+                      <h3 className="font-bold text-sm">Two-Factor Authentication</h3>
+                      <p className={`text-xs ${muted}`}>Add an extra layer of security to your account.</p>
+                    </div>
+                  </div>
+
+                  {mfaError && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs">{mfaError}</div>}
+                  {mfaSuccess && <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 text-xs">{mfaSuccess}</div>}
+
+                  {!mfaEnabled && mfaSetupStep === 'idle' && (
+                    <button onClick={handleMfaSetup} className="px-6 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 transition">Enable MFA</button>
+                  )}
+
+                  {mfaSetupStep === 'scan' && (
+                    <div className="space-y-6 border-t border-slate-500/10 pt-6">
+                      <div className="flex flex-col md:flex-row gap-8 items-start">
+                        {mfaQr && <img src={mfaQr} alt="QR" className="w-40 h-40 rounded-xl border border-slate-800 p-2 bg-white" />}
+                        <div className="flex-1 space-y-4">
+                          <p className="text-xs font-bold">1. Scan the QR code or enter the key manually:</p>
+                          <code className="block p-2 rounded bg-slate-900 text-cyan-400 text-[10px] break-all">{mfaSecret}</code>
+                          <p className="text-xs font-bold">2. Enter verification code:</p>
+                          <input 
+                            type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.slice(0,6))}
+                            className="w-full p-2 rounded-lg bg-slate-900 border border-slate-800 text-center text-xl tracking-widest font-mono"
+                          />
+                          <button onClick={handleMfaVerifySetup} className="w-full py-2 rounded-lg bg-green-600 text-white font-bold text-xs">Verify & Enable</button>
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <p className={`text-[10px] mt-4 opacity-50 font-medium ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    Requested on {new Date(req.created_at).toLocaleDateString()}
-                  </p>
+
+                  {mfaEnabled && (
+                    <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
+                      <p className="text-xs font-bold text-green-500 mb-4 flex items-center gap-2"><span>✅</span> MFA is currently active</p>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" value={mfaDisableCode} onChange={e => setMfaDisableCode(e.target.value.slice(0,6))}
+                          placeholder="Code" className="flex-1 p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs"
+                        />
+                        <button onClick={handleMfaDisable} className="px-4 py-2 rounded-lg bg-red-600 text-white text-xs font-bold">Disable</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
+
+          </main>
         </div>
       </div>
     </div>

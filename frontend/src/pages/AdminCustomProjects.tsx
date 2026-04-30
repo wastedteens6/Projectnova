@@ -25,7 +25,7 @@ interface CustomProject {
 export default function AdminCustomProjects() {
   const navigate = useNavigate()
   const { theme } = useTheme()
-  const isLight = theme === 'light'
+  const dk = theme !== 'light'
   const [projects, setProjects] = useState<CustomProject[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState<CustomProject | null>(null)
@@ -34,12 +34,6 @@ export default function AdminCustomProjects() {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    const userRole = localStorage.getItem('userRole')
-    
-    if (!token || userRole !== 'admin') {
-      setLoading(false)
-      return
-    }
 
     const fetchProjects = async () => {
       try {
@@ -80,7 +74,6 @@ export default function AdminCustomProjects() {
         if (selectedProject?.id === id) {
           setSelectedProject({ ...selectedProject, status: newStatus as any, admin_notes: adminNotes })
         }
-        alert('Status updated successfully')
       } else {
         alert(data.message || 'Failed to update status')
       }
@@ -92,43 +85,48 @@ export default function AdminCustomProjects() {
 
   const getStatusColor = (status: string): string => {
     const colors: { [key: string]: string } = {
-      pending: isLight ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-900/30 text-yellow-400',
-      revived: isLight ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400',
-      approved: isLight ? 'bg-green-100 text-green-700' : 'bg-green-900/30 text-green-400',
-      rejected: isLight ? 'bg-red-100 text-red-700' : 'bg-red-900/30 text-red-400'
+      pending: dk ? 'bg-yellow-500/15 text-yellow-500 border-yellow-500/20' : 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      revived: dk ? 'bg-blue-500/15 text-blue-500 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-200',
+      approved: dk ? 'bg-green-500/15 text-green-500 border-green-500/20' : 'bg-green-50 text-green-700 border-green-200',
+      rejected: dk ? 'bg-red-500/15 text-red-500 border-red-500/20' : 'bg-red-50 text-red-700 border-red-200'
     }
     return colors[status] || ''
   }
 
+  // ── Style shortcuts ───────────────────────────────────────────────────────
+  const surface  = dk ? 'bg-transparent text-white'       : 'bg-transparent text-slate-900'
+  const border   = dk ? 'border-slate-800/60'             : 'border-slate-200'
+  const muted    = dk ? 'text-slate-400'                  : 'text-slate-500'
+  const cardBg   = dk ? 'bg-slate-900/80 backdrop-blur-xl border-slate-800/60 shadow-xl shadow-slate-900/50' : 'bg-white border-slate-200 shadow-sm'
+  const inputBg  = dk ? 'bg-slate-900/50 border-slate-700/50 text-white placeholder-slate-500 focus:border-purple-500' : 'bg-white border-slate-200 text-slate-900 focus:border-purple-400'
+
   return (
-    <div className={`min-h-screen pointer-events-none ${isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
-      <div className={`pointer-events-auto border-b transition-all duration-300 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'} pt-6 pb-6`}>
-        <div className="container max-w-6xl mx-auto px-4 flex items-center justify-between">
-          <h1 className={`text-3xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-            Custom Project Requests
-          </h1>
+    <div className={`min-h-screen pointer-events-none ${surface}`}>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className={`border-b ${border} pointer-events-auto transition-all duration-300 ${dk ? 'bg-slate-900/50 backdrop-blur-md' : 'bg-white/50 backdrop-blur-md'}`}>
+        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-6 min-w-0">
+            <h1 className="text-lg font-bold whitespace-nowrap">Custom Project Requests</h1>
+            <span className={`text-xs font-medium hidden md:inline ${muted}`}>{projects.length} Total</span>
+          </div>
           <button
             onClick={() => navigate(-1)}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-              isLight ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' : 'bg-slate-700 text-white hover:bg-slate-600'
-            }`}
-          >
-            ← Back
-          </button>
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition border ${dk ? 'border-slate-700 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >← Back</button>
         </div>
-      </div>
+      </header>
 
-      <div className="pointer-events-auto container max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-3 gap-8">
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div className="pointer-events-auto max-w-screen-xl mx-auto px-6 py-6 grid md:grid-cols-12 gap-6 items-start">
+        
         {/* Left Column: Filter & List */}
-        <div className="md:col-span-1 space-y-6">
-          <div className={`p-4 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'}`}>
-            <label className="block text-sm font-bold mb-2">Filter by Status</label>
+        <div className="md:col-span-4 flex flex-col gap-4">
+          <div className={`p-4 rounded-xl border flex flex-col gap-2 ${cardBg}`}>
+            <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Filter by Status</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`w-full px-4 py-2 rounded-lg border ${
-                isLight ? 'bg-white border-slate-200' : 'bg-slate-800 border-slate-600 text-white'
-              }`}
+              className={`w-full px-3 py-2 text-xs rounded-md border outline-none transition ${inputBg}`}
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -138,11 +136,11 @@ export default function AdminCustomProjects() {
             </select>
           </div>
 
-          <div className="space-y-3">
+          <div className={`rounded-xl border flex flex-col overflow-hidden max-h-[calc(100vh-200px)] overflow-y-auto ${cardBg}`}>
             {loading ? (
-              <div className="text-center py-8 opacity-50">Loading...</div>
+              <div className={`text-center py-8 text-xs ${muted}`}>Loading...</div>
             ) : projects.length === 0 ? (
-              <div className="text-center py-8 opacity-50">No requests found</div>
+              <div className={`text-center py-8 text-xs ${muted}`}>No requests found</div>
             ) : (
               projects.map((project) => (
                 <div
@@ -151,19 +149,19 @@ export default function AdminCustomProjects() {
                     setSelectedProject(project)
                     setAdminNotes(project.admin_notes || '')
                   }}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`p-3 border-b last:border-b-0 cursor-pointer transition-all ${border} ${
                     selectedProject?.id === project.id
-                      ? isLight ? 'bg-blue-50 border-blue-400 shadow-lg shadow-blue-200/50' : 'bg-blue-900/20 border-blue-500 shadow-lg shadow-blue-900/20'
-                      : isLight ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'
+                      ? dk ? 'bg-purple-500/10' : 'bg-purple-50'
+                      : dk ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-bold text-sm line-clamp-1">{project.subject}</h3>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${getStatusColor(project.status)}`}>
+                  <div className="flex justify-between items-start gap-2 mb-1">
+                    <h3 className="font-bold text-xs line-clamp-1">{project.subject}</h3>
+                    <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider whitespace-nowrap ${getStatusColor(project.status)}`}>
                       {project.status}
                     </span>
                   </div>
-                  <p className="text-[10px] opacity-50 mt-1">{project.user_email}</p>
+                  <p className={`text-[10px] truncate ${muted}`}>{project.user_email}</p>
                 </div>
               ))
             )}
@@ -171,43 +169,43 @@ export default function AdminCustomProjects() {
         </div>
 
         {/* Right Column: Details */}
-        <div className="md:col-span-2">
+        <div className="md:col-span-8">
           {selectedProject ? (
-            <div className={`p-8 rounded-2xl border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
-              <div className="flex justify-between items-start mb-6">
-                <h2 className="text-2xl font-black">{selectedProject.subject}</h2>
-                <span className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${getStatusColor(selectedProject.status)}`}>
+            <div className={`p-6 rounded-2xl border flex flex-col gap-6 ${cardBg}`}>
+              <div className="flex justify-between items-start">
+                <h2 className="text-lg font-bold">{selectedProject.subject}</h2>
+                <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-widest ${getStatusColor(selectedProject.status)}`}>
                   {selectedProject.status}
                 </span>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6 mb-8">
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">User Details</h4>
-                  <p className="text-sm font-bold">{selectedProject.user_email}</p>
-                  <p className="text-xs opacity-70">{selectedProject.phone || 'No phone provided'}</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className={`p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-700/50' : 'bg-slate-50 border-slate-200'}`}>
+                  <h4 className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${muted}`}>User Details</h4>
+                  <p className="text-xs font-semibold">{selectedProject.user_email}</p>
+                  <p className={`text-[10px] mt-0.5 ${muted}`}>{selectedProject.phone || 'No phone provided'}</p>
                 </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Project Info</h4>
-                  <p className="text-sm font-bold">{selectedProject.domain}</p>
-                  <p className="text-xs opacity-70">Budget: {selectedProject.budget || 'N/A'}</p>
+                <div className={`p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-700/50' : 'bg-slate-50 border-slate-200'}`}>
+                  <h4 className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Project Info</h4>
+                  <p className="text-xs font-semibold">{selectedProject.domain}</p>
+                  <p className={`text-[10px] mt-0.5 ${muted}`}>Budget: {selectedProject.budget || 'N/A'}</p>
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="flex flex-col gap-4">
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Description</h4>
-                  <div className={`p-4 rounded-xl text-sm leading-relaxed ${isLight ? 'bg-slate-50' : 'bg-slate-800/50'}`}>
+                  <h4 className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Description</h4>
+                  <div className={`p-3 rounded-lg border text-xs leading-relaxed ${dk ? 'bg-slate-900/50 border-slate-700/50' : 'bg-slate-50 border-slate-200'}`}>
                     {selectedProject.description}
                   </div>
                 </div>
 
                 {selectedProject.technologies && (
                   <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Technologies</h4>
-                    <div className="flex flex-wrap gap-2 text-xs">
+                    <h4 className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Technologies</h4>
+                    <div className="flex flex-wrap gap-1">
                       {selectedProject.technologies.split(',').map((tech, i) => (
-                        <span key={i} className={`px-3 py-1 rounded-lg ${isLight ? 'bg-slate-100' : 'bg-slate-800'}`}>
+                        <span key={i} className={`px-2 py-0.5 rounded border text-[10px] font-medium ${dk ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                           {tech.trim()}
                         </span>
                       ))}
@@ -216,51 +214,41 @@ export default function AdminCustomProjects() {
                 )}
                 
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">Input/Output Details</h4>
-                  <p className="text-sm">{selectedProject.inputOutput || 'N/A'}</p>
+                  <h4 className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Input/Output Details</h4>
+                  <p className="text-xs">{selectedProject.inputOutput || 'N/A'}</p>
                 </div>
 
-                <div className="pt-6 border-t border-slate-800/20">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-3">Admin Response</h4>
+                <div className={`pt-4 border-t ${border}`}>
+                  <h4 className={`text-[9px] font-bold uppercase tracking-wider mb-2 ${muted}`}>Admin Response</h4>
                   <textarea
                     value={adminNotes}
                     onChange={(e) => setAdminNotes(e.target.value)}
                     placeholder="Enter notes or feedback for the user..."
-                    className={`w-full h-32 p-4 rounded-xl border text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none ${
-                      isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700'
-                    }`}
+                    className={`w-full h-24 p-3 rounded-lg border text-xs outline-none transition ${inputBg}`}
                   />
                   
-                  <div className="flex flex-wrap gap-3 mt-4">
+                  <div className="flex gap-2 mt-3">
                     <button 
                       onClick={() => handleStatusUpdate(selectedProject.id, 'approved')}
-                      className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-sm transition-all"
-                    >
-                      Approved
-                    </button>
+                      className={`flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition border ${dk ? 'border-green-500/50 text-green-400 hover:bg-green-500/10' : 'border-green-300 text-green-700 hover:bg-green-50'}`}
+                    >Approve</button>
                     <button 
                       onClick={() => handleStatusUpdate(selectedProject.id, 'revived')}
-                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-sm transition-all"
-                    >
-                      Revived
-                    </button>
+                      className={`flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition border ${dk ? 'border-blue-500/50 text-blue-400 hover:bg-blue-500/10' : 'border-blue-300 text-blue-700 hover:bg-blue-50'}`}
+                    >Revive</button>
                     <button 
                       onClick={() => handleStatusUpdate(selectedProject.id, 'rejected')}
-                      className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-sm transition-all"
-                    >
-                      Rejected
-                    </button>
+                      className={`flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition border ${dk ? 'border-red-500/50 text-red-400 hover:bg-red-500/10' : 'border-red-300 text-red-700 hover:bg-red-50'}`}
+                    >Reject</button>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className={`h-full flex items-center justify-center p-12 rounded-2xl border-2 border-dashed ${
-              isLight ? 'border-slate-200 bg-slate-50' : 'border-slate-800 bg-slate-900/20'
-            }`}>
-              <div className="text-center opacity-50">
-                <span className="text-4xl block mb-4">📄</span>
-                <p className="font-bold">Select a request to view details</p>
+            <div className={`h-full min-h-[300px] flex items-center justify-center p-8 rounded-2xl border border-dashed ${dk ? 'border-slate-800 bg-slate-900/20' : 'border-slate-300 bg-slate-50'}`}>
+              <div className={`text-center ${muted}`}>
+                <span className="text-3xl block mb-2 opacity-50">📄</span>
+                <p className="text-xs font-bold">Select a request to view details</p>
               </div>
             </div>
           )}

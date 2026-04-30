@@ -3,7 +3,7 @@ import React from 'react'
 export default function Home() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, sans-serif' }}>
-      <h1 style={{ fontSize: '48px', marginBottom: '20px' }}>Welcome to WastedTeens☠️</h1>
+      <h1 style={{ fontSize: '48px', marginBottom: '20px' }}>Welcome to WastedTeens</h1>
       <p style={{ fontSize: '18px', marginBottom: '30px', maxWidth: '600px', textAlign: 'center' }}>
         Stop wasting time. Buy smart projects. Premium academic projects for AI, ML, Web Dev, Cybersecurity & more.
       </p>

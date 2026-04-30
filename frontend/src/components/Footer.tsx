@@ -1,8 +1,10 @@
 import React from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { useSettings } from '../context/SettingsContext'
 
 export default function Footer() {
   const { theme } = useTheme()
+  const { settings } = useSettings()
   const isLight = theme === 'light'
 
   const links = {
@@ -27,7 +29,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className={`text-base font-bold mb-3 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-              WastedTeens☠️
+              {settings.siteName}
             </div>
             <p className={`text-sm leading-relaxed ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
               Premium academic projects for smart students. Instant access, premium quality.
@@ -84,7 +86,7 @@ export default function Footer() {
           isLight ? 'border-slate-100' : 'border-white/[0.06]'
         }`}>
           <p className={`text-xs ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>
-            © 2026 WastedTeens. All rights reserved.
+            © {new Date().getFullYear()} {settings.siteName}. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <a href="#" className={`text-xs transition-colors ${

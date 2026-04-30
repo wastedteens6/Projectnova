@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext'
 export default function AdminCreateProject() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const dk = !isLight
   const { id } = useParams()
   const navigate = useNavigate()
   const isEditMode = !!id
@@ -49,7 +50,6 @@ export default function AdminCreateProject() {
             headers: { Authorization: `Bearer ${token}` }
           })
           
-          // Find the project by id
           const project = res.data.data.find((p: any) => p.id === id)
           if (!project) {
             showAlert('Project not found', 'error')
@@ -57,13 +57,12 @@ export default function AdminCreateProject() {
             return
           }
 
-          // Populate form with existing data
           setFormData({
             title: project.title || '',
             slug: project.slug || '',
             category: project.category || 'Web',
             description: project.description || '',
-            techStack: Array.isArray(project.tech_stack) ? project.tech_stack.join(', ') : project.tech_stack || '',
+            techStack: Array.isArray(project.technologies) ? project.technologies.join(', ') : project.technologies || '',
             keyFeatures: Array.isArray(project.features) ? project.features.join(', ') : project.features || '',
             tier1GoogleDrive: project.tiers?.[0]?.drive_link || '',
             tier1Features: Array.isArray(project.tiers?.[0]?.features) ? project.tiers[0].features.join(', ') : '',
@@ -77,24 +76,15 @@ export default function AdminCreateProject() {
             isPublished: project.is_published !== false
           })
 
-          // Load existing images
-          if (project.media?.images && project.media.images.length > 0) {
-            setImagePreview(project.media.images.map((img: string) => {
-              if (!img.startsWith('http')) {
-                return `http://localhost:5000${img.startsWith('/') ? img : '/' + img}`
-              }
-              return img
-            }))
+          if (project.images && project.images.length > 0) {
+            setImagePreview(project.images.map((img: string) => 
+              img.startsWith('http') ? img : `http://localhost:5000${img}`
+            ))
           }
 
-          // Load existing video
-          if (project.media?.videos && project.media.videos.length > 0) {
-            const videoUrl = project.media.videos[0]
-            if (!videoUrl.startsWith('http')) {
-              setVideoPreview(`http://localhost:5000${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`)
-            } else {
-              setVideoPreview(videoUrl)
-            }
+          if (project.videos && project.videos.length > 0) {
+            const videoUrl = project.videos[0]
+            setVideoPreview(videoUrl.startsWith('http') ? videoUrl : `http://localhost:5000${videoUrl}`)
           }
 
           setPageLoading(false)
@@ -104,81 +94,43 @@ export default function AdminCreateProject() {
           navigate('/admin/projects')
         }
       }
-
       fetchProject()
     }
   }, [id, isEditMode, navigate])
 
-  // Auto-generate slug from title
   const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
+    return title.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-')
   }
 
   const handleInputChange = (e: any) => {
     const { name, value, type, checked } = e.target
-    
     let newValue = type === 'checkbox' ? checked : value
-    
-    // Auto-generate slug when title changes
     if (name === 'title') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: newValue,
-        slug: generateSlug(newValue as string)
-      }))
+      setFormData(prev => ({ ...prev, [name]: newValue, slug: generateSlug(newValue as string) }))
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: newValue
-      }))
+      setFormData(prev => ({ ...prev, [name]: newValue }))
     }
   }
 
   const handleImageUpload = (e: any) => {
     const files = Array.from(e.target.files || []) as File[]
-    
-    if (files.length + projectImages.length > 10) {
-      showAlert('Maximum 10 images allowed', 'error')
-      return
-    }
-
+    if (files.length + projectImages.length > 10) { showAlert('Maximum 10 images allowed', 'error'); return }
     files.forEach(file => {
-      if (file.size > 5 * 1024 * 1024) {
-        showAlert(`${file.name} exceeds 5MB limit`, 'error')
-        return
-      }
-
+      if (file.size > 5 * 1024 * 1024) { showAlert(`${file.name} exceeds 5MB limit`, 'error'); return }
       const reader = new FileReader()
-      reader.onload = (e) => {
-        setImagePreview(prev => [...prev, e.target?.result as string])
-      }
+      reader.onload = (e) => setImagePreview(prev => [...prev, e.target?.result as string])
       reader.readAsDataURL(file)
     })
-
     setProjectImages(prev => [...prev, ...files])
   }
 
   const handleVideoUpload = (e: any) => {
     const file = e.target.files?.[0]
-    
     if (!file) return
-
-    if (file.size > 50 * 1024 * 1024) {
-      showAlert('Video exceeds 50MB limit', 'error')
-      return
-    }
-
+    if (file.size > 50 * 1024 * 1024) { showAlert('Video exceeds 50MB limit', 'error'); return }
     const reader = new FileReader()
-    reader.onload = (e) => {
-      setVideoPreview(e.target?.result as string)
-    }
+    reader.onload = (e) => setVideoPreview(e.target?.result as string)
     reader.readAsDataURL(file)
-
     setPreviewVideo(file)
   }
 
@@ -187,10 +139,7 @@ export default function AdminCreateProject() {
     setImagePreview(prev => prev.filter((_, i) => i !== index))
   }
 
-  const removeVideo = () => {
-    setPreviewVideo(null)
-    setVideoPreview(null)
-  }
+  const removeVideo = () => { setPreviewVideo(null); setVideoPreview(null) }
 
   const showAlert = (message: string, type: 'success' | 'error') => {
     setAlert({ show: true, message, type })
@@ -199,433 +148,223 @@ export default function AdminCreateProject() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault()
-    
-    if (!formData.title || !formData.category || !formData.description) {
-      showAlert('Title, category, and description are required', 'error')
-      return
-    }
-
+    if (!formData.title || !formData.category || !formData.description) { showAlert('Title, category, and description are required', 'error'); return }
     setLoading(true)
-    
     try {
       const token = localStorage.getItem('token')
-      
-      if (!token) {
-        showAlert('You must be logged in as an admin', 'error')
-        setLoading(false)
-        return
-      }
-
+      if (!token) { showAlert('You must be logged in as an admin', 'error'); setLoading(false); return }
       const data = new FormData()
-      
-      // Add form data
-      Object.keys(formData).forEach(key => {
-        data.append(key, formData[key as keyof typeof formData])
-      })
+      Object.keys(formData).forEach(key => data.append(key, formData[key as keyof typeof formData] as any))
+      projectImages.forEach(img => data.append('projectImages', img))
+      if (previewVideo) data.append('previewVideo', previewVideo)
 
-      // Add images
-      projectImages.forEach(img => {
-        data.append('projectImages', img)
-      })
-
-      // Add video
-      if (previewVideo) {
-        data.append('previewVideo', previewVideo)
-      }
-
-      // Add tier prices
-      data.append('tier1Price', formData.tier1Price)
-      data.append('tier2Price', formData.tier2Price)
-      data.append('tier3Price', formData.tier3Price)
-
-      const url = isEditMode 
-        ? `http://localhost:5000/api/admin/projects/${id}`
-        : 'http://localhost:5000/api/admin/projects/create'
-      
+      const url = isEditMode ? `http://localhost:5000/api/admin/projects/${id}` : 'http://localhost:5000/api/admin/projects/create'
       const method = isEditMode ? 'put' : 'post'
 
-      const response = await axios({
-        method,
-        url,
-        data,
-        headers: {
-          'Authorization': `Bearer ${token}`
-          // Don't set Content-Type for FormData - axios will set it with boundary automatically
-        }
-      })
-
+      await axios({ method, url, data, headers: { 'Authorization': `Bearer ${token}` } })
       showAlert(isEditMode ? 'Project updated successfully!' : 'Project created successfully!', 'success')
-      
-      // Redirect after success
-      setTimeout(() => {
-        navigate('/admin/projects')
-      }, 1500)
+      setTimeout(() => navigate('/admin/projects'), 1500)
     } catch (error: any) {
-      showAlert(error.response?.data?.error || `Error ${isEditMode ? 'updating' : 'creating'} project`, 'error')
-    } finally {
-      setLoading(false)
-    }
+      showAlert(error.response?.data?.error || 'Error saving project', 'error')
+    } finally { setLoading(false) }
   }
+
+  // ── Style shortcuts ───────────────────────────────────────────────────────
+  const surface  = dk ? 'bg-transparent text-white'       : 'bg-transparent text-slate-900'
+  const border   = dk ? 'border-slate-800/60'             : 'border-slate-200'
+  const muted    = dk ? 'text-slate-400'                  : 'text-slate-500'
+  const cardBg   = dk ? 'bg-slate-900/80 backdrop-blur-xl border-slate-800/60 shadow-xl shadow-slate-900/50' : 'bg-white border-slate-200 shadow-sm'
+  const inputBg  = dk ? 'bg-slate-900/50 border-slate-700/50 text-white placeholder-slate-500 focus:border-purple-500' : 'bg-white border-slate-200 text-slate-900 focus:border-purple-400'
 
   if (pageLoading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center pt-20 transition-all duration-300 ${isLight ? 'bg-white' : 'bg-slate-950'}`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
       </div>
     )
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 px-4 transition-all duration-300 pointer-events-none ${
-      isLight ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'
-    }`}>
-      <div className="container max-w-4xl mx-auto pointer-events-auto">
-        {/* Alert */}
-        {alert.show && (
-          <div className={`fixed top-24 right-4 px-6 py-3 rounded-lg z-50 animate-pulse border transition-all duration-300 ${
-            alert.type === 'success'
-              ? isLight
-                ? 'bg-green-50 border-green-300 text-green-700'
-                : 'bg-green-500/20 border-green-500/50 text-green-300'
-              : isLight
-              ? 'bg-red-50 border-red-300 text-red-700'
-              : 'bg-red-500/20 border-red-500/50 text-red-300'
-          }`}>
-            {alert.message}
+    <div className={`min-h-screen pb-12 ${surface}`}>
+      {/* Alert */}
+      {alert.show && (
+        <div className={`fixed top-20 right-6 px-4 py-2 text-xs font-bold rounded-lg z-50 animate-fade-in border shadow-lg ${
+          alert.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-500' : 'bg-red-500/10 border-red-500/30 text-red-500'
+        }`}>
+          {alert.message}
+        </div>
+      )}
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className={`border-b ${border} transition-all duration-300 ${dk ? 'bg-slate-900/50 backdrop-blur-md' : 'bg-white/50 backdrop-blur-md'}`}>
+        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-6 min-w-0">
+            <h1 className="text-lg font-bold whitespace-nowrap">{isEditMode ? 'Edit Project' : 'New Project'}</h1>
+            <span className={`text-xs font-medium hidden md:inline ${muted}`}>Configure details and tiers</span>
           </div>
-        )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition border ${dk ? 'border-slate-700 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >Cancel</button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="px-4 py-1.5 rounded-md text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 transition disabled:opacity-50"
+            >{loading ? 'Saving...' : (isEditMode ? 'Update' : 'Create')}</button>
+          </div>
+        </div>
+      </header>
 
-        <h1 className={`text-4xl font-bold mb-2 transition-colors duration-300 ${
-          isLight ? 'text-slate-900' : 'text-white'
-        }`}>{isEditMode ? 'Edit Project' : 'Create New Project'}</h1>
-        <p className={`mb-8 transition-colors duration-300 ${
-          isLight ? 'text-slate-600' : 'text-slate-300'
-        }`}>{isEditMode ? 'Update project information' : 'Add a new project to the platform'}</p>
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
-          <div className={`p-6 rounded-lg border transition-all duration-300 ${
-            isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700'
-          }`}>
-            <h2 className="text-2xl font-bold mb-6">Basic Information</h2>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block font-semibold mb-2">Project Title *</label>
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto px-6 py-6 grid lg:grid-cols-3 gap-6 items-start">
+        
+        {/* Left Column: Basic Info & Media */}
+        <div className="lg:col-span-2 space-y-6">
+          <section className={`p-5 rounded-xl border ${cardBg}`}>
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <span className="p-1.5 rounded bg-purple-500/10 text-purple-500 text-[10px]">📄</span>
+              Basic Information
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Project Title *</label>
                 <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="e.g., E-Commerce MERN Stack"
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
-                  required
+                  type="text" name="title" value={formData.title} onChange={handleInputChange}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition ${inputBg}`}
                 />
               </div>
-
-              <div>
-                <label className="block font-semibold mb-2">Slug (Auto-generated)</label>
-                <input
-                  type="text"
-                  value={formData.slug}
-                  placeholder="auto-generated from title"
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none opacity-70 cursor-not-allowed ${
-                    isLight
-                      ? 'border-slate-300 bg-slate-100'
-                      : 'border-slate-600 bg-slate-700'
-                  }`}
-                  disabled
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block font-semibold mb-2">Category *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Category *</label>
                 <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
-                  required
+                  name="category" value={formData.category} onChange={handleInputChange}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition ${inputBg}`}
                 >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
+                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
               </div>
-
-              <div />
             </div>
-
-            <div className="mb-6">
-              <label className="block font-semibold mb-2">Description *</label>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Description *</label>
               <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Provide a detailed overview of your project..."
-                rows={5}
-                className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                  isLight
-                    ? 'border-slate-300 bg-white focus:border-purple-600'
-                    : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                }`}
-                required
+                name="description" value={formData.description} onChange={handleInputChange} rows={4}
+                className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition ${inputBg}`}
               />
             </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block font-semibold mb-2">Tech Stack (comma-separated)</label>
+            <div className="grid md:grid-cols-2 gap-4 mt-4">
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Technologies (comma-sep)</label>
                 <input
-                  type="text"
-                  name="techStack"
-                  value={formData.techStack}
-                  onChange={handleInputChange}
-                  placeholder="e.g., React, Node.js, MongoDB"
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
+                  type="text" name="techStack" value={formData.techStack} onChange={handleInputChange}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition ${inputBg}`}
                 />
               </div>
-
-              <div>
-                <label className="block font-semibold mb-2">Key Features (comma-separated)</label>
+              <div className="flex flex-col gap-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Key Features (comma-sep)</label>
                 <input
-                  type="text"
-                  name="keyFeatures"
-                  value={formData.keyFeatures}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Authentication, Payment Gateway"
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
+                  type="text" name="keyFeatures" value={formData.keyFeatures} onChange={handleInputChange}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none transition ${inputBg}`}
                 />
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Tier System */}
-          {[
-            { tier: 1, label: 'Tier 1: Code Only' },
-            { tier: 2, label: 'Tier 2: Code + Videos' },
-            { tier: 3, label: 'Tier 3: Premium Support' }
-          ].map(({ tier, label }) => (
-            <div key={tier} className={`p-6 rounded-lg border transition-all duration-300 ${
-              isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700'
-            }`}>
-              <h2 className="text-2xl font-bold mb-6">{label}</h2>
-
-              <div className="mb-6">
-                <label className="block font-semibold mb-2">Price (₹) *</label>
-                <input
-                  type="number"
-                  name={`tier${tier}Price`}
-                  value={formData[`tier${tier}Price` as keyof typeof formData]}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 499"
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
-                  required
-                />
+          <section className={`p-5 rounded-xl border ${cardBg}`}>
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <span className="p-1.5 rounded bg-blue-500/10 text-blue-500 text-[10px]">🎞️</span>
+              Project Media
+            </h3>
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Images (Up to 10)</label>
+                <div className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-purple-500 transition ${dk ? 'border-slate-800' : 'border-slate-200'}`}>
+                  <input type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" id="imgUp" />
+                  <label htmlFor="imgUp" className="cursor-pointer text-xs font-bold">Click to add images</label>
+                </div>
+                {imagePreview.length > 0 && (
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mt-2">
+                    {imagePreview.map((url, i) => (
+                      <div key={i} className="relative group aspect-square rounded-md overflow-hidden border border-slate-800">
+                        <img src={url} className="w-full h-full object-cover" alt="" />
+                        <button onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-red-500 text-white w-4 h-4 rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-
-              <div className="mb-6">
-                <label className="block font-semibold mb-2">Google Drive Link *</label>
-                <input
-                  type="url"
-                  name={`tier${tier}GoogleDrive`}
-                  value={formData[`tier${tier}GoogleDrive` as keyof typeof formData]}
-                  onChange={handleInputChange}
-                  placeholder="https://drive.google.com/..."
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-2">Tier Features (comma-separated) *</label>
-                <input
-                  type="text"
-                  name={`tier${tier}Features`}
-                  value={formData[`tier${tier}Features` as keyof typeof formData]}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Source Code, Documentation"
-                  className={`w-full px-4 py-2 rounded-lg border transition duration-300 focus:outline-none ${
-                    isLight
-                      ? 'border-slate-300 bg-white focus:border-purple-600'
-                      : 'border-slate-600 bg-slate-800 focus:border-cyan-500'
-                  }`}
-                  required
-                />
+              <div className="flex flex-col gap-2">
+                <label className={`text-[10px] font-bold uppercase tracking-wider ${muted}`}>Preview Video</label>
+                {!videoPreview ? (
+                  <div className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition ${dk ? 'border-slate-800' : 'border-slate-200'}`}>
+                    <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" id="vidUp" />
+                    <label htmlFor="vidUp" className="cursor-pointer text-xs font-bold">Click to add video</label>
+                  </div>
+                ) : (
+                  <div className="relative group w-full max-w-sm rounded-lg overflow-hidden border border-slate-800">
+                    <video src={videoPreview} controls className="w-full h-auto" />
+                    <button onClick={removeVideo} className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold shadow-lg">Remove Video</button>
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+          </section>
+        </div>
 
-          {/* Project Media */}
-          <div className={`p-6 rounded-lg border transition-all duration-300 ${
-            isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700'
-          }`}>
-            <h2 className="text-2xl font-bold mb-6">Project Media</h2>
-
-            <div className="mb-8">
-              <label className="block font-semibold mb-4">Project Images (up to 10, max 5MB each)</label>
-              <div className={`border-2 border-dashed p-6 rounded-lg text-center cursor-pointer transition duration-300 ${
-                isLight
-                  ? 'border-slate-300 hover:border-purple-600 bg-slate-100'
-                  : 'border-slate-600 hover:border-cyan-500 bg-slate-800'
-              }`}>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="imageInput"
-                />
-                <label htmlFor="imageInput" className="cursor-pointer">
-                  <p className="text-lg font-semibold">Click to upload images</p>
-                  <p className="text-sm opacity-75">or drag and drop</p>
-                </label>
-              </div>
-
-              {/* Image Preview */}
-              {imagePreview.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                  {imagePreview.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img src={preview} alt={`Preview ${index}`} className="w-full h-32 object-cover rounded-lg" />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-700"
-                      >
-                        ×
-                      </button>
+        {/* Right Column: Tiers & Visibility */}
+        <div className="space-y-6">
+          <section className={`p-5 rounded-xl border ${cardBg}`}>
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <span className="p-1.5 rounded bg-amber-500/10 text-amber-500 text-[10px]">💎</span>
+              Pricing Tiers
+            </h3>
+            <div className="space-y-6">
+              {[1, 2, 3].map(t => (
+                <div key={t} className={`p-4 rounded-lg border ${dk ? 'bg-slate-800/20 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-purple-500">Tier {t}</h4>
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-1">
+                      <label className={`text-[9px] font-bold uppercase ${muted}`}>Price (₹)</label>
+                      <input
+                        type="number" name={`tier${t}Price`} value={formData[`tier${t}Price` as keyof typeof formData] as any} onChange={handleInputChange}
+                        className={`w-full px-3 py-1.5 text-xs rounded border outline-none transition ${inputBg}`}
+                      />
                     </div>
-                  ))}
+                    <div className="flex flex-col gap-1">
+                      <label className={`text-[9px] font-bold uppercase ${muted}`}>Drive Link</label>
+                      <input
+                        type="url" name={`tier${t}GoogleDrive`} value={formData[`tier${t}GoogleDrive` as keyof typeof formData] as any} onChange={handleInputChange}
+                        className={`w-full px-3 py-1.5 text-xs rounded border outline-none transition ${inputBg}`}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className={`text-[9px] font-bold uppercase ${muted}`}>Features (comma-sep)</label>
+                      <textarea
+                        name={`tier${t}Features`} value={formData[`tier${t}Features` as keyof typeof formData] as any} onChange={handleInputChange} rows={2}
+                        className={`w-full px-3 py-1.5 text-xs rounded border outline-none transition ${inputBg}`}
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
+          </section>
 
-            <div>
-              <label className="block font-semibold mb-4">Preview Video (max 50MB)</label>
-              <div className={`border-2 border-dashed p-6 rounded-lg text-center cursor-pointer transition duration-300 ${
-                isLight
-                  ? 'border-slate-300 hover:border-purple-600 bg-slate-100'
-                  : 'border-slate-600 hover:border-cyan-500 bg-slate-800'
-              }`}>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  className="hidden"
-                  id="videoInput"
-                />
-                <label htmlFor="videoInput" className="cursor-pointer">
-                  <p className="text-lg font-semibold">Click to upload video</p>
-                  <p className="text-sm opacity-75">Supported formats: mp4, avi, mov, mkv</p>
-                </label>
+          <section className={`p-5 rounded-xl border ${cardBg}`}>
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <span className="p-1.5 rounded bg-green-500/10 text-green-500 text-[10px]">👁️</span>
+              Settings
+            </h3>
+            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-800/50 bg-slate-800/20">
+              <label className="text-xs font-bold">Published</label>
+              <div 
+                className={`w-10 h-5 flex items-center rounded-full p-1 cursor-pointer transition-colors ${formData.isPublished ? 'bg-purple-600' : 'bg-slate-600'}`}
+                onClick={() => setFormData(prev => ({ ...prev, isPublished: !prev.isPublished }))}
+              >
+                <div className={`bg-white w-3 h-3 rounded-full shadow-md transform transition-transform duration-300 ${formData.isPublished ? 'translate-x-5' : 'translate-x-0'}`} />
               </div>
-
-              {/* Video Preview */}
-              {videoPreview && (
-                <div className="mt-6 relative">
-                  <video
-                    src={videoPreview}
-                    controls
-                    className="w-full max-w-md rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeVideo}
-                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-700"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Visibility */}
-          <div className={`p-6 rounded-lg border transition-all duration-300 ${
-            isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700'
-          }`}>
-            <h2 className="text-2xl font-bold mb-6">Visibility</h2>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="publish"
-                name="isPublished"
-                checked={formData.isPublished}
-                onChange={handleInputChange}
-                className="w-5 h-5 cursor-pointer"
-              />
-              <label htmlFor="publish" className="ml-3 cursor-pointer font-semibold">
-                Publish immediately (make project live on the site)
-              </label>
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className={`px-8 py-3 rounded-lg font-bold transition duration-300 ${
-                isLight
-                  ? 'bg-slate-300 hover:bg-slate-400 text-slate-900'
-                  : 'bg-slate-700 hover:bg-slate-600 text-white'
-              }`}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-8 py-3 rounded-lg font-bold text-white bg-gradient-to-r from-purple-600 to-cyan-600 hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105 disabled:opacity-50"
-            >
-              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Project' : 'Create Project')}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Bottom Navigation - Back Button Only */}
-      <div className="fixed bottom-6 left-6 z-40 pointer-events-auto">
-        <button
-          onClick={() => navigate(-1)}
-          title="Go back to previous page"
-          className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-            isLight 
-              ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
-              : 'bg-slate-700 text-white hover:bg-slate-600'
-          }`}
-        >
-          <span>← Back</span>
-        </button>
+          </section>
+        </div>
       </div>
     </div>
   )

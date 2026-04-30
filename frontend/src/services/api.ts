@@ -9,6 +9,7 @@ export const API_BASE_URL = API_BASE
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 10000,
+  withCredentials: true,
 })
 
 // Add token to requests if available
@@ -30,6 +31,8 @@ export const authService = {
     api.post('/auth/admin-login', { email, password }),
   getCurrentUser: () =>
     api.get('/auth/me'),
+  logout: () =>
+    api.post('/auth/logout'),
 }
 
 // Projects Services

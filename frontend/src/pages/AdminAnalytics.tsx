@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext'
 export default function AdminAnalytics() {
   const navigate = useNavigate()
   const { theme } = useTheme()
-  const isLight = theme === 'light'
+  const dk = theme !== 'light'
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalOrders, setTotalOrders] = useState(0)
   const [avgOrderValue, setAvgOrderValue] = useState(0)
@@ -22,31 +22,23 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
-        // Fetch orders
         const ordersRes = await axios.get('http://localhost:5000/api/orders', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
         const orders = ordersRes.data.data || []
         setTotalOrders(orders.length)
 
-        // Calculate total revenue from orders
         const revenue = orders.reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
         setTotalRevenue(revenue)
 
-        // Calculate average order value
         const avg = orders.length > 0 ? revenue / orders.length : 0
         setAvgOrderValue(avg)
 
-        // Get top projects by purchase count
         const projectStats: { [key: string]: any } = {}
         orders.forEach((order: any) => {
           const projectTitle = order.project_title || 'Unknown Project'
           if (!projectStats[order.project_id]) {
-            projectStats[order.project_id] = {
-              title: projectTitle,
-              count: 0,
-              revenue: 0
-            }
+            projectStats[order.project_id] = { title: projectTitle, count: 0, revenue: 0 }
           }
           projectStats[order.project_id].count += 1
           projectStats[order.project_id].revenue += order.amount || 0
@@ -64,112 +56,102 @@ export default function AdminAnalytics() {
     fetchAnalyticsData()
   }, [])
 
+  // ── Style shortcuts ───────────────────────────────────────────────────────
+  const surface  = dk ? 'bg-transparent text-white'       : 'bg-transparent text-slate-900'
+  const border   = dk ? 'border-slate-800/60'             : 'border-slate-200'
+  const muted    = dk ? 'text-slate-400'                  : 'text-slate-500'
+  const cardBg   = dk ? 'bg-slate-900/80 backdrop-blur-xl border-slate-800/60 shadow-xl shadow-slate-900/50' : 'bg-white border-slate-200 shadow-sm'
+
   return (
-    <div className={`min-h-screen pointer-events-none ${isLight ? 'bg-slate-50' : 'bg-slate-950'}`}>
-      <header className={`border-b transition-all duration-300 pointer-events-auto ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800'}`}>
-        <div className="container max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <h1 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Analytics</h1>
-          <div className="flex gap-3 items-center">
-            <button
-              onClick={() => navigate(-1)}
-              title="Go back to previous page"
-              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-                isLight 
-                  ? 'bg-slate-200 text-slate-900 hover:bg-slate-300' 
-                  : 'bg-slate-700 text-white hover:bg-slate-600'
-              }`}
-            >
-              <span>← Back</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                isLight
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-red-700 text-white hover:bg-red-800'
-              }`}
-            >
-              Logout
-            </button>
+    <div className={`min-h-screen pointer-events-none ${surface}`}>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className={`border-b ${border} pointer-events-auto transition-all duration-300 ${dk ? 'bg-slate-900/50 backdrop-blur-md' : 'bg-white/50 backdrop-blur-md'}`}>
+        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-6 min-w-0">
+            <h1 className="text-lg font-bold whitespace-nowrap">Analytics</h1>
+            <span className={`text-xs font-medium hidden md:inline ${muted}`}>Performance Overview</span>
           </div>
+          <button
+            onClick={() => navigate(-1)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition border ${dk ? 'border-slate-700 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >← Back</button>
         </div>
       </header>
 
-      <div className="container py-12 pointer-events-auto">
-        <h2 className="text-3xl font-bold text-slate-900 mb-8">Analytics Dashboard</h2>
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto px-6 py-6 pointer-events-auto flex flex-col gap-6">
         
         {/* Analytics Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
-          <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-purple-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Total Orders</h3>
-            <p className="text-4xl font-bold text-purple-600">{totalOrders}</p>
-            <p className="text-slate-500 text-sm mt-2">{totalOrders > 0 ? 'Orders placed' : 'No data yet'}</p>
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className={`rounded-xl p-4 shadow-sm border-l-2 border-l-purple-500 transition-all ${cardBg}`}>
+            <h3 className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Total Orders</h3>
+            <p className="text-2xl font-bold text-purple-500">{totalOrders}</p>
+            <p className={`text-[10px] mt-1 ${muted}`}>{totalOrders > 0 ? 'Orders placed' : 'No data yet'}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-blue-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Total Revenue</h3>
-            <p className="text-4xl font-bold text-blue-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-            <p className="text-slate-500 text-sm mt-2">{totalRevenue > 0 ? 'Revenue generated' : 'No data yet'}</p>
+          <div className={`rounded-xl p-4 shadow-sm border-l-2 border-l-blue-500 transition-all ${cardBg}`}>
+            <h3 className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Total Revenue</h3>
+            <p className="text-2xl font-bold text-blue-500">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className={`text-[10px] mt-1 ${muted}`}>{totalRevenue > 0 ? 'Revenue generated' : 'No data yet'}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-green-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Avg Order Value</h3>
-            <p className="text-4xl font-bold text-green-600">₹{avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-            <p className="text-slate-500 text-sm mt-2">{avgOrderValue > 0 ? 'Per order' : 'No data yet'}</p>
+          <div className={`rounded-xl p-4 shadow-sm border-l-2 border-l-emerald-500 transition-all ${cardBg}`}>
+            <h3 className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Avg Order Value</h3>
+            <p className="text-2xl font-bold text-emerald-500">₹{avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className={`text-[10px] mt-1 ${muted}`}>{avgOrderValue > 0 ? 'Per order' : 'No data yet'}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-md border-l-4 border-yellow-600">
-            <h3 className="text-slate-600 text-sm font-semibold mb-2">Order Rate</h3>
-            <p className="text-4xl font-bold text-yellow-600">{totalOrders}</p>
-            <p className="text-slate-500 text-sm mt-2">Total transactions</p>
+          <div className={`rounded-xl p-4 shadow-sm border-l-2 border-l-amber-500 transition-all ${cardBg}`}>
+            <h3 className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${muted}`}>Order Rate</h3>
+            <p className="text-2xl font-bold text-amber-500">{totalOrders}</p>
+            <p className={`text-[10px] mt-1 ${muted}`}>Total transactions</p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 gap-4">
           {/* Top Projects */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">Top Projects</h3>
+          <div className={`rounded-xl p-5 border transition-all flex flex-col gap-4 ${cardBg}`}>
+            <h3 className="text-sm font-bold">Top Projects</h3>
             {topProjects.length > 0 ? (
-              <div className="space-y-4">
+              <div className="flex flex-col gap-2">
                 {topProjects.map((project: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center pb-3 border-b border-slate-200 last:border-b-0">
+                  <div key={idx} className={`flex justify-between items-center p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
                     <div>
-                      <p className="font-semibold text-slate-900">{idx + 1}. {project.title}</p>
-                      <p className="text-sm text-slate-500">{project.count} {project.count === 1 ? 'purchase' : 'purchases'}</p>
+                      <p className="font-bold text-xs">{idx + 1}. {project.title}</p>
+                      <p className={`text-[10px] mt-0.5 ${muted}`}>{project.count} {project.count === 1 ? 'purchase' : 'purchases'}</p>
                     </div>
-                    <p className="font-bold text-green-600">₹{project.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                    <p className="font-bold text-xs text-emerald-500">₹{project.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-slate-500">
+              <div className={`text-center py-8 text-xs ${muted}`}>
                 <p>No project sales data yet. Projects sold will appear here.</p>
               </div>
             )}
           </div>
 
           {/* Traffic Sources */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">Order Statistics</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <p className="text-slate-600">Total Orders</p>
-                <p className="font-bold text-purple-600">{totalOrders}</p>
+          <div className={`rounded-xl p-5 border transition-all flex flex-col gap-4 ${cardBg}`}>
+            <h3 className="text-sm font-bold">Order Statistics</h3>
+            <div className="flex flex-col gap-2">
+              <div className={`flex justify-between items-center p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                <p className={`text-xs font-semibold ${muted}`}>Total Orders</p>
+                <p className="font-bold text-xs text-purple-500">{totalOrders}</p>
               </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <p className="text-slate-600">Total Revenue</p>
-                <p className="font-bold text-blue-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+              <div className={`flex justify-between items-center p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                <p className={`text-xs font-semibold ${muted}`}>Total Revenue</p>
+                <p className="font-bold text-xs text-blue-500">₹{Number(totalRevenue).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
               </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <p className="text-slate-600">Avg Per Order</p>
-                <p className="font-bold text-green-600">₹{avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+              <div className={`flex justify-between items-center p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                <p className={`text-xs font-semibold ${muted}`}>Avg Per Order</p>
+                <p className="font-bold text-xs text-emerald-500">₹{Number(avgOrderValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
               </div>
-              <div className="flex justify-between items-center">
-                <p className="text-slate-600">Best Period</p>
-                <p className="font-bold text-yellow-600">This Month</p>
+              <div className={`flex justify-between items-center p-3 rounded-lg border ${dk ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                <p className={`text-xs font-semibold ${muted}`}>Best Period</p>
+                <p className="font-bold text-xs text-amber-500">This Month</p>
               </div>
             </div>
           </div>
         </div>
       </div>
-
     </div>
   )
 }

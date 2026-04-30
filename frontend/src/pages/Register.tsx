@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 import { useTheme } from '../context/ThemeContext'
 
 export default function Register() {
@@ -13,9 +13,17 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [step, setStep] = useState<'credentials' | 'forced_setup'>('credentials')
   const [nameFocus, setNameFocus] = useState(false)
   const [emailFocus, setEmailFocus] = useState(false)
   const [passwordFocus, setPasswordFocus] = useState(false)
+
+  // Forced MFA setup state
+  const [setupToken, setSetupToken] = useState('')
+  const [setupQr, setSetupQr] = useState('')
+  const [setupSecret, setSetupSecret] = useState('')
+  const [setupCode, setSetupCode] = useState('')
+  const [setupFocus, setSetupFocus] = useState(false)
 
   // Password strength validation
   const checkPasswordStrength = (pwd) => {
@@ -67,11 +75,20 @@ export default function Register() {
 
     setLoading(true)
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/register', {
+      const res = await api.post('/auth/register', {
         name,
         email,
         password
       })
+
+      if (res.data.mfa_setup_required) {
+        setSetupToken(res.data.setup_token)
+        setSetupQr(res.data.qrDataUrl)
+        setSetupSecret(res.data.secret)
+        setStep('forced_setup')
+        setLoading(false)
+        return
+      }
 
       setSuccess('Registration successful! Redirecting...')
       localStorage.setItem('token', res.data.token)
@@ -82,8 +99,32 @@ export default function Register() {
       setTimeout(() => {
         window.location.href = res.data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
       }, 1500)
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleForcedSetupVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await api.post('/auth/mfa/verify-setup', {
+        setup_token: setupToken,
+        code: setupCode.trim(),
+      })
+      localStorage.setItem('token', res.data.token)
+      localStorage.setItem('userRole', res.data.user.role)
+      localStorage.setItem('userEmail', res.data.user.email)
+      localStorage.setItem('userName', res.data.user.name)
+      setSuccess('🎉 MFA enabled! Redirecting to your dashboard...')
+      setTimeout(() => {
+        window.location.href = res.data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
+      }, 1500)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Invalid code. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -115,14 +156,30 @@ export default function Register() {
         }`}>
           {/* Header */}
           <div className="mb-8 text-center">
-            <h1 className="text-4xl font-black mb-2">
-              <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                Join Us
-              </span>
-            </h1>
-            <p className={`text-sm transition-colors duration-300 ${
-              isLight ? 'text-slate-600' : 'text-slate-400'
-            }`}>Create an account to access premium projects</p>
+            {step === 'credentials' ? (
+              <>
+                <h1 className="text-4xl font-black mb-2">
+                  <span className="bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    Join Us
+                  </span>
+                </h1>
+                <p className={`text-sm transition-colors duration-300 ${
+                  isLight ? 'text-slate-600' : 'text-slate-400'
+                }`}>Create an account to access premium projects</p>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl mb-3">🔒</div>
+                <h1 className="text-3xl font-black mb-2">
+                  <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                    Setup Required
+                  </span>
+                </h1>
+                <p className={`text-sm ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                  Secure your account with an authenticator app to continue
+                </p>
+              </>
+            )}
           </div>
 
           {/* Error Message */}
@@ -156,6 +213,7 @@ export default function Register() {
           )}
 
           {/* Form */}
+          {step === 'credentials' && (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name Field */}
             <div className="group">
@@ -349,8 +407,96 @@ export default function Register() {
               )}
             </button>
           </form>
+          )}
+
+          {/* ── Step 2: FORCED MFA Setup (mandatory enrollment) ── */}
+          {step === 'forced_setup' && (
+            <form onSubmit={handleForcedSetupVerify} className="space-y-5">
+              {/* Mandatory badge */}
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/20 border border-amber-500/50">
+                <span className="text-lg">⚠️</span>
+                <p className="text-xs font-bold text-amber-400">
+                  Two-Factor Authentication is required to access ProjectNova. Please set it up now.
+                </p>
+              </div>
+
+              {/* QR Code section */}
+              <div className={`rounded-xl p-4 border ${isLight ? 'bg-white border-slate-200' : 'bg-slate-800/60 border-slate-700'}`}>
+                <p className={`text-xs font-bold mb-3 uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  Step 1 — Scan with Microsoft Authenticator / Google Authenticator / Authy
+                </p>
+                <div className="flex flex-col items-center gap-4">
+                  {setupQr && (
+                    <img
+                      src={setupQr}
+                      alt="MFA QR Code"
+                      className="w-44 h-44 rounded-xl border-4 border-purple-500/40 bg-white p-1"
+                    />
+                  )}
+                  <div className="w-full">
+                    <p className={`text-xs mb-1 font-semibold ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      Can't scan? Enter this key manually:
+                    </p>
+                    <code className={`text-xs font-mono px-3 py-2 rounded-lg block break-all text-center ${
+                      isLight ? 'bg-slate-100 text-slate-700' : 'bg-slate-900 text-cyan-400'
+                    }`}>
+                      {setupSecret}
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Code input */}
+              <div>
+                <p className={`text-xs font-bold mb-2 uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  Step 2 — Enter the 6-digit code from your app
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={setupCode}
+                  onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onFocus={() => setSetupFocus(true)}
+                  onBlur={() => setSetupFocus(false)}
+                  placeholder="000000"
+                  className={`w-full px-4 py-3 rounded-lg border text-center text-2xl tracking-[0.5em] font-mono transition duration-300 focus:outline-none ${
+                    setupFocus
+                      ? isLight
+                        ? 'border-purple-500 bg-slate-100 shadow-lg shadow-purple-500/20'
+                        : 'border-cyan-500 bg-slate-900/70 shadow-lg shadow-cyan-500/20'
+                      : isLight
+                        ? 'border-slate-300 bg-slate-100 hover:border-slate-400'
+                        : 'border-slate-700 bg-slate-900/50 hover:border-slate-600'
+                  } ${isLight ? 'text-slate-900 placeholder-slate-500' : 'text-white placeholder-slate-500'}`}
+                  maxLength={6}
+                  autoFocus
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || setupCode.length !== 6}
+                className={`w-full py-3 rounded-lg font-bold transition transform duration-300 ${
+                  loading || setupCode.length !== 6
+                    ? isLight ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/50 hover:scale-105'
+                }`}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 rounded-full animate-spin border-slate-400 border-t-emerald-400" />
+                    Activating MFA...
+                  </span>
+                ) : '✅ Activate & Continue to Dashboard'}
+              </button>
+            </form>
+          )}
 
           {/* Divider */}
+          {step === 'credentials' && (
+            <>
           <div className={`my-6 flex items-center gap-4 transition-all duration-300`}>
             <div className={`flex-1 h-px bg-gradient-to-r from-transparent ${
               isLight ? 'to-slate-300' : 'to-slate-700'
@@ -378,6 +524,8 @@ export default function Register() {
               </a>
             </p>
           </div>
+          </>
+          )}
         </div>
 
         {/* Floating Elements */}

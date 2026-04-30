@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 import { useTheme } from '../context/ThemeContext'
 
 export default function AdminLogin() {
@@ -16,7 +16,7 @@ export default function AdminLogin() {
     setLoading(true)
     setError('')
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/admin-login', { email, password })
+      const res = await api.post('/auth/admin-login', { email, password })
       
       if (res.data.user?.role !== 'admin') {
         setError('Only admins can access this panel')

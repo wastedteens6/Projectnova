@@ -14,7 +14,7 @@ export default function Home() {
       padding: '20px'
     }}>
       <h1 style={{ fontSize: '48px', marginBottom: '20px', textAlign: 'center' }}>
-        Welcome to WastedTeens☠️
+        Welcome to WastedTeens
       </h1>
       <p style={{ fontSize: '18px', marginBottom: '30px', maxWidth: '600px', textAlign: 'center' }}>
         Stop wasting time. Buy smart projects. Premium academic projects for AI, ML, Web Dev, Cybersecurity & more.
