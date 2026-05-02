@@ -4,14 +4,128 @@ export const runMigrations = async () => {
   try {
     console.log("🔄 Running database migrations...");
 
-    // ── 1. is_featured column on Project ──────────────────────────────────────
-    const checkFeatured = await pool.query(`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'Project' AND column_name = 'is_featured'
+    // ── 0. Create Base Tables if they do not exist ──────────────────────────────
+    const checkUserTable = await pool.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'User'
     `);
-    if (checkFeatured.rows.length === 0) {
-      await pool.query(`ALTER TABLE "Project" ADD COLUMN is_featured BOOLEAN DEFAULT false`);
-      console.log("✅ Added is_featured to Project");
+
+    if (checkUserTable.rows.length === 0) {
+      console.log("📦 Base tables do not exist. Creating default tables...");
+
+      // ── Create User ──
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "User" (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          email VARCHAR(255) UNIQUE NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          password VARCHAR(255) NOT NULL,
+          role VARCHAR(50) DEFAULT 'user',
+          metadata JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Created User table");
+
+      // ── Create Project ──
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "Project" (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          slug VARCHAR(255) UNIQUE NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          description TEXT NOT NULL,
+          category VARCHAR(100),
+          is_published BOOLEAN DEFAULT true,
+          is_featured BOOLEAN DEFAULT false,
+          tech_stack JSONB DEFAULT '[]',
+          technologies JSONB DEFAULT '[]',
+          features JSONB DEFAULT '[]',
+          tiers JSONB DEFAULT '[]',
+          media JSONB DEFAULT '{"images": [], "videos": []}',
+          analytics JSONB DEFAULT '{"views": 0, "downloads": 0}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Created Project table");
+
+      // ── Create Order ──
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "Order" (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID REFERENCES "User"(id) ON DELETE SET NULL,
+          project_id UUID REFERENCES "Project"(id) ON DELETE CASCADE,
+          tier_id INTEGER,
+          type VARCHAR(50) NOT NULL,
+          status VARCHAR(50) DEFAULT 'pending',
+          amount_in_paise INTEGER DEFAULT 0,
+          items JSONB DEFAULT '[]',
+          payment_info JSONB DEFAULT '{}',
+          razorpay_order_id VARCHAR(255),
+          razorpay_payment_id VARCHAR(255),
+          razorpay_signature TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Created Order table");
+
+      // ── Create Support ──
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "Support" (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID REFERENCES "User"(id) ON DELETE CASCADE,
+          subject VARCHAR(255) NOT NULL,
+          status VARCHAR(50) DEFAULT 'open',
+          conversation JSONB DEFAULT '[]',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Created Support table");
+
+      // ── Create CustomRequest ──
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "CustomRequest" (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_email VARCHAR(255) NOT NULL,
+          project_name VARCHAR(255) NOT NULL,
+          description TEXT NOT NULL,
+          details JSONB DEFAULT '{}',
+          status VARCHAR(50) DEFAULT 'pending',
+          admin_notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Created CustomRequest table");
+
+      // ── Seed default users ──
+      // Default passwords: admin123 and user123 (hashed)
+      await pool.query(`
+        INSERT INTO "User" (email, name, password, role) VALUES
+        ('admin@admin.com', 'Admin User', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin'),
+        ('user@example.com', 'Regular User', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user')
+        ON CONFLICT (email) DO NOTHING
+      `);
+      console.log("✅ Seeded default admin and regular users");
+    }
+
+    // ── 1. is_featured column on Project ──────────────────────────────────────
+    const checkProjectTable = await pool.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'Project'
+    `);
+    if (checkProjectTable.rows.length > 0) {
+      const checkFeatured = await pool.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'Project' AND column_name = 'is_featured'
+      `);
+      if (checkFeatured.rows.length === 0) {
+        await pool.query(`ALTER TABLE "Project" ADD COLUMN is_featured BOOLEAN DEFAULT false`);
+        console.log("✅ Added is_featured to Project");
+      }
     }
 
     // ── 1.5 Role-Based Access Control (RBAC) ──────────────────────────────────
@@ -60,23 +174,33 @@ export const runMigrations = async () => {
     }
 
     // ── 2. Index for featured projects ─────────────────────────────────────────
-    const checkFeaturedIdx = await pool.query(`
-      SELECT indexname FROM pg_indexes
-      WHERE tablename = 'Project' AND indexname = 'idx_project_featured_published'
-    `);
-    if (checkFeaturedIdx.rows.length === 0) {
-      await pool.query(`
-        CREATE INDEX idx_project_featured_published
-        ON "Project" (is_featured DESC, created_at DESC)
-        WHERE is_published = true
+    if (checkProjectTable.rows.length > 0) {
+      const checkFeaturedIdx = await pool.query(`
+        SELECT indexname FROM pg_indexes
+        WHERE tablename = 'Project' AND indexname = 'idx_project_featured_published'
       `);
-      console.log("✅ Created featured projects index");
+      if (checkFeaturedIdx.rows.length === 0) {
+        await pool.query(`
+          CREATE INDEX idx_project_featured_published
+          ON "Project" (is_featured DESC, created_at DESC)
+          WHERE is_published = true
+        `);
+        console.log("✅ Created featured projects index");
+      }
     }
 
     // ── 3. Production Payment Architecture ────────────────────────────────────
     // Add Razorpay-specific columns to Order table
-
     const addCol = async (table, column, definition) => {
+      const tableCheck = await pool.query(
+        `SELECT table_name FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name = $1`,
+        [table]
+      );
+      if (tableCheck.rows.length === 0) {
+        return; // Table doesn't exist, don't try to add a column!
+      }
+
       const res = await pool.query(
         `SELECT column_name FROM information_schema.columns
          WHERE table_name = $1 AND column_name = $2`,
@@ -135,15 +259,21 @@ export const runMigrations = async () => {
     }
 
     // ── 5. Index on Order.razorpay_order_id for fast webhook lookups ──────────
-    const checkRzpIdx = await pool.query(`
-      SELECT indexname FROM pg_indexes
-      WHERE tablename = 'Order' AND indexname = 'idx_order_razorpay_order_id'
+    const checkOrderTable = await pool.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'Order'
     `);
-    if (checkRzpIdx.rows.length === 0) {
-      await pool.query(`
-        CREATE INDEX idx_order_razorpay_order_id ON "Order"(razorpay_order_id)
+    if (checkOrderTable.rows.length > 0) {
+      const checkRzpIdx = await pool.query(`
+        SELECT indexname FROM pg_indexes
+        WHERE tablename = 'Order' AND indexname = 'idx_order_razorpay_order_id'
       `);
-      console.log("✅ Created index on Order.razorpay_order_id");
+      if (checkRzpIdx.rows.length === 0) {
+        await pool.query(`
+          CREATE INDEX idx_order_razorpay_order_id ON "Order"(razorpay_order_id)
+        `);
+        console.log("✅ Created index on Order.razorpay_order_id");
+      }
     }
 
     // ── 6. Ensure Notification table exists ──────────────────────────────────
@@ -195,7 +325,12 @@ export const runMigrations = async () => {
       console.log("✅ Created Request table");
     } else {
       console.log("✅ Request table exists");
+      await addCol("Request", "user_email", "VARCHAR(255)");
+      await addCol("Request", "details", "JSONB DEFAULT '{}'");
+      await addCol("Request", "admin_notes", "TEXT");
+      await addCol("Request", "conversation", "JSONB DEFAULT '[]'");
     }
+
 
 
     // ── 7. MFA and Account Lockout columns on User ───────────────────────────
