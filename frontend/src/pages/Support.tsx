@@ -19,7 +19,7 @@ export default function Support() {
     setSuccess('')
     setLoading(true)
     try {
-      await api.post(/api/support/tickets', { subject, message })
+      await api.post('/support/tickets', { subject, message })
       setSuccess('Support ticket created successfully!')
       setSubject('')
       setMessage('')

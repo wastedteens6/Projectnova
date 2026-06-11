@@ -28,7 +28,7 @@ export default function Projects() {
   const [selectedComplexity, setSelectedComplexity] = useState<string[]>([])
 
   useEffect(() => {
-    api.get(/api/projects')
+    api.get('/projects')
       .then(res => setProjects(res.data.data || []))
       .catch(err => console.error('Error fetching projects:', err))
       .finally(() => setLoading(false))
@@ -71,7 +71,7 @@ export default function Projects() {
     }
 
     // Fetch authenticated user's purchases from backend
-    api.get(/api/purchases/my-purchases', {
+    api.get('/purchases/my-purchases', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

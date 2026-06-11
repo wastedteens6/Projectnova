@@ -45,7 +45,7 @@ export default function ProjectUpload() {
         techStack: formData.tags.split(',').map(t => t.trim())
       }
 
-      await api.post(/api/projects/create', projectData, {
+      await api.post('/projects/create', projectData, {
         headers: { Authorization: `Bearer ${token}` }
       })
 
