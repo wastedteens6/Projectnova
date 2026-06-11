@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import axios from 'axios';
 
 const api = axios.create({

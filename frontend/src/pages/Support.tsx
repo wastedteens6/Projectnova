@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState } from 'react'
 import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
@@ -18,7 +19,7 @@ export default function Support() {
     setSuccess('')
     setLoading(true)
     try {
-      await axios.post('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/support/tickets', { subject, message })
+      await api.post(/api/support/tickets', { subject, message })
       setSuccess('Support ticket created successfully!')
       setSubject('')
       setMessage('')

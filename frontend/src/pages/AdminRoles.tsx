@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
@@ -49,7 +50,7 @@ export default function AdminRoles() {
 
   const fetchRoles = async () => {
     try {
-      const res = await axios.get(`${API}/roles`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await api.get(${API}/roles`, { headers: { Authorization: `Bearer ${token}` } })
       setRoles(res.data.roles || [])
     } catch (err: any) {
       showToast(err.response?.data?.error || 'Failed to load roles', 'error')
@@ -84,10 +85,10 @@ export default function AdminRoles() {
     setActionLoading(true)
     try {
       if (editingRole) {
-        await axios.put(`${API}/roles/${editingRole.name}`, { permissions: formPermissions }, { headers: { Authorization: `Bearer ${token}` } })
+        await api.put(${API}/roles/${editingRole.name}`, { permissions: formPermissions }, { headers: { Authorization: `Bearer ${token}` } })
         showToast('Role updated successfully')
       } else {
-        await axios.post(`${API}/roles`, { name: formName, permissions: formPermissions }, { headers: { Authorization: `Bearer ${token}` } })
+        await api.post(${API}/roles`, { name: formName, permissions: formPermissions }, { headers: { Authorization: `Bearer ${token}` } })
         showToast('Role created successfully')
       }
       fetchRoles()
@@ -104,7 +105,7 @@ export default function AdminRoles() {
     if (!window.confirm(`Are you sure you want to delete the role '${name}'?`)) return
     
     try {
-      await axios.delete(`${API}/roles/${name}`, { headers: { Authorization: `Bearer ${token}` } })
+      await api.delete(${API}/roles/${name}`, { headers: { Authorization: `Bearer ${token}` } })
       showToast('Role deleted successfully')
       fetchRoles()
     } catch (err: any) {

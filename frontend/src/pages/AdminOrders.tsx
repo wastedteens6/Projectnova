@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
@@ -13,7 +14,7 @@ export default function AdminOrders() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const ordersRes = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/orders', {
+        const ordersRes = await api.get(/api/orders', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
         setOrders(ordersRes.data.data || [])

@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
@@ -38,7 +39,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refreshSettings = useCallback(async () => {
     try {
-      const response = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/settings');
+      const response = await api.get(/api/settings');
       if (response.data.success) {
         const dbSettings = response.data.settings;
         setSettings({

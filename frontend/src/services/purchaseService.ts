@@ -1,3 +1,4 @@
+import api from '../lib/api';
 export const downloadReceipt = async (purchaseId, userId, fileName = 'receipt') => {
   try {
     const response = await fetch(

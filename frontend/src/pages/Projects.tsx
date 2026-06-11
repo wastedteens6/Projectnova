@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
@@ -27,7 +28,7 @@ export default function Projects() {
   const [selectedComplexity, setSelectedComplexity] = useState<string[]>([])
 
   useEffect(() => {
-    axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects')
+    api.get(/api/projects')
       .then(res => setProjects(res.data.data || []))
       .catch(err => console.error('Error fetching projects:', err))
       .finally(() => setLoading(false))
@@ -70,7 +71,7 @@ export default function Projects() {
     }
 
     // Fetch authenticated user's purchases from backend
-    axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/my-purchases', {
+    api.get(/api/purchases/my-purchases', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -1,3 +1,4 @@
+import api from '../lib/api';
 // API Service for frontend
 import axios from 'axios'
 

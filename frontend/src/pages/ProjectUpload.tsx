@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState } from 'react'
 import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
@@ -44,7 +45,7 @@ export default function ProjectUpload() {
         techStack: formData.tags.split(',').map(t => t.trim())
       }
 
-      await axios.post('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects/create', projectData, {
+      await api.post(/api/projects/create', projectData, {
         headers: { Authorization: `Bearer ${token}` }
       })
 

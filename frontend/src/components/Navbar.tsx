@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'

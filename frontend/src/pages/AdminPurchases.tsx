@@ -1,3 +1,4 @@
+import api from '../lib/api';
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -35,7 +36,7 @@ export default function AdminPurchases() {
   const fetchPurchases = async () => {
     try {
       setRefreshing(true)
-      const response = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/purchases', {
+      const response = await api.get(/api/admin/purchases', {
         headers: { Authorization: `Bearer ${token}` }
       })
 

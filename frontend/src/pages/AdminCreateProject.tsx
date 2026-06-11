@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -46,7 +47,7 @@ export default function AdminCreateProject() {
       const fetchProject = async () => {
         try {
           const token = localStorage.getItem('token')
-          const res = await axios.get(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/all`, {
+          const res = await api.get(/api/admin/projects/all`, {
             headers: { Authorization: `Bearer ${token}` }
           })
           

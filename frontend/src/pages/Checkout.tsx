@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
@@ -70,7 +71,7 @@ export default function Checkout() {
               )
               pending.price = r.data.upgrade_price
             } else {
-              const r = await axios.get(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects/${pending.slug}`)
+              const r = await api.get(/api/projects/${pending.slug}`)
               if (r.data?.success && r.data?.data?.tiers) {
                 const match = r.data.data.tiers.find(
                   (t: any) => Number(t.level) === Number(pending.tierLevel) || t.name === pending.tier
@@ -124,7 +125,7 @@ export default function Checkout() {
                 )
                 return { ...item, price: r.data.upgrade_price }
               }
-              const r = await axios.get(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects/${item.slug}`)
+              const r = await api.get(/api/projects/${item.slug}`)
               if (r.data?.success && r.data?.data?.tiers) {
                 const tiers = r.data.data.tiers
                 let m = tiers.find((t: any) => Number(t.level) === Number(item.tierLevel))
@@ -155,7 +156,7 @@ export default function Checkout() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/config')
+        const res = await api.get(/api/checkout/config')
         if (res.data.razorpayKeyId) {
           setRazorpayKey(res.data.razorpayKeyId)
         }

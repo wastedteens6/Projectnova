@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { ThemeProvider } from './context/ThemeContext'

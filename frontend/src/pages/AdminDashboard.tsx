@@ -1,3 +1,4 @@
+import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -41,18 +42,18 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setRefreshing(true)
-      const projectsRes = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects')
+      const projectsRes = await api.get(/api/projects')
       setProjectCount(projectsRes.data.data?.length || 0)
 
       try {
-        const usersRes = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/auth/users', {
+        const usersRes = await api.get(/api/auth/users', {
           headers: { Authorization: `Bearer ${token}` }
         })
         const users = usersRes.data.data || usersRes.data.users || []
         setUserCount(Array.isArray(users) ? users.length : 0)
       } catch { setUserCount(0) }
 
-      const ordersRes = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/orders', {
+      const ordersRes = await api.get(/api/orders', {
         headers: { Authorization: `Bearer ${token}` }
       })
       const orders = ordersRes.data.data || []
