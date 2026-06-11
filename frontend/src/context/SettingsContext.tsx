@@ -39,7 +39,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refreshSettings = useCallback(async () => {
     try {
-      const response = await api.get(/api/settings');
+      const response = await api.get('/api/settings');
       if (response.data.success) {
         const dbSettings = response.data.settings;
         setSettings({
