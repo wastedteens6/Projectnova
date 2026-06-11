@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../lib/api'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -14,7 +14,7 @@ const getImageUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
   const formatted = path.startsWith('/') ? path : `/${path}`
-  return `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${formatted}`
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${formatted}`
 }
 
 export default function FeaturedProjects() {
@@ -35,7 +35,7 @@ export default function FeaturedProjects() {
   const fetchFeaturedProjects = async () => {
     try {
       setLoading(true)
-      const res = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects/featured')
+      const res = await api.get('/api/projects/featured')
       setProjects(res.data.data || [])
       setError('')
     } catch (err) {
@@ -55,7 +55,7 @@ export default function FeaturedProjects() {
     }
 
     try {
-      const res = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/my-purchases', {
+      const res = await api.get('/api/purchases/my-purchases', {
         headers: { Authorization: `Bearer ${token}` }
       })
       
@@ -90,7 +90,6 @@ export default function FeaturedProjects() {
       return
     }
 
-    // Add the first tier to cart
     const tier = project.tiers?.[0]
     if (!tier) {
       setPurchaseAlert({ show: true, message: 'No pricing tiers available' })
@@ -120,7 +119,6 @@ export default function FeaturedProjects() {
     const purchased = purchasedProjects[project.id]
     if (!purchased) return
 
-    // Create a simple receipt text
     const receiptContent = `
 PROJECT PURCHASE RECEIPT
 =======================
@@ -134,7 +132,6 @@ Transaction ID: ${purchased.transactionId}
 Thank you for your purchase!
     `
 
-    // Create a blob and download
     const element = document.createElement('a')
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(receiptContent))
     element.setAttribute('download', `receipt-${project.slug}.txt`)
@@ -154,7 +151,6 @@ Thank you for your purchase!
     const currentTierData = purchasedProjects[project.id]
     if (!currentTierData) return
 
-    // Find current tier index by tier NAME (not level)
     const currentTierIndex = project.tiers?.findIndex((t: any) => t.name === currentTierData.tier) ?? -1
     
     if (currentTierIndex === -1 || currentTierIndex === (project.tiers?.length || 0) - 1) {
@@ -174,7 +170,7 @@ Thank you for your purchase!
       projectSlug: project.slug,
       projectTitle: project.title,
       currentTier: currentTierData.tier,
-      currentTierLevel: currentTierData.tierLevel, // Correct level (1, 2, 3)
+      currentTierLevel: currentTierData.tierLevel,
       currentPrice: currentTierData.priceInPaise / 100,
       availableTiers: upgradeTiers
     }
@@ -221,7 +217,7 @@ Thank you for your purchase!
           }`}>Trending and most sought-after academic projects</p>
         </motion.div>
 
-        {/* Featured Projects Grid - Single Row */}
+        {/* Featured Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {projects.slice(0, 3).map((project: any) => {
             const minPrice = Math.min(...(project.tiers?.map((t: any) => t.price) || [0]))
@@ -255,7 +251,7 @@ Thank you for your purchase!
                     </div>
                   )}
 
-                  {/* Add to Cart Symbol - Top Right */}
+                  {/* Add to Cart Button */}
                   <div className="absolute top-3 right-3 z-10">
                     <motion.button
                       whileHover={{ scale: 1.1 }}
@@ -299,14 +295,12 @@ Thank you for your purchase!
 
                 {/* Content */}
                 <div className={`p-5 ${isLight ? 'bg-white' : 'bg-slate-800'}`}>
-                  {/* Title */}
                   <h3 className={`font-bold text-lg mb-2 line-clamp-2 group-hover:text-purple-600 transition-colors ${
                     isLight ? 'text-slate-900' : 'text-white'
                   }`}>
                     {project.title}
                   </h3>
 
-                  {/* Description */}
                   <p className={`text-sm mb-4 line-clamp-2 ${
                     isLight ? 'text-slate-600' : 'text-slate-400'
                   }`}>
@@ -336,12 +330,11 @@ Thank you for your purchase!
                     )}
                   </div>
 
-                  {/* Footer with Action Buttons */}
+                  {/* Footer */}
                   <div className={`pt-4 border-t ${
                     isLight ? 'border-slate-100' : 'border-slate-700/50'
                   }`}>
                     {isProjectPurchased(project.id) ? (
-                      // Show Upgrade and Download Receipt buttons for purchased projects
                       <div className="grid grid-cols-2 gap-3">
                         <motion.button
                           whileHover={{ scale: 1.05 }}
@@ -361,7 +354,6 @@ Thank you for your purchase!
                         </motion.button>
                       </div>
                     ) : (
-                      // Show Buy Now button for non-purchased projects
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -406,9 +398,7 @@ Thank you for your purchase!
       {/* Purchase Alert */}
       {purchaseAlert.show && (
         <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-lg shadow-lg text-white font-semibold animate-bounce ${
-          purchaseAlert.message.includes('✅')
-            ? 'bg-green-500'
-            : 'bg-red-500'
+          purchaseAlert.message.includes('✅') ? 'bg-green-500' : 'bg-red-500'
         }`}
         style={{ zIndex: 9999 }}>
           {purchaseAlert.message}
