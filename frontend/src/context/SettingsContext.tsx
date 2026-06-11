@@ -38,7 +38,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refreshSettings = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/settings');
+      const response = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/settings');
       if (response.data.success) {
         const dbSettings = response.data.settings;
         setSettings({
@@ -63,7 +63,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        'http://localhost:5000/api/settings',
+        '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/settings',
         { settings: newSettings },
         { headers: { Authorization: `Bearer ${token}` } }
       );

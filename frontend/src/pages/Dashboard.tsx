@@ -317,7 +317,7 @@ export default function Dashboard() {
                     <div key={i} className={`group rounded-2xl border overflow-hidden transition-all hover:border-purple-500/50 ${cardBg}`}>
                       <div className="aspect-video relative overflow-hidden bg-slate-800">
                         {p.image ? (
-                          <img src={p.image.startsWith('http') ? p.image : `http://localhost:5000${p.image}`} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                          <img src={p.image.startsWith('http') ? p.image : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${p.image}`} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">📦</div>
                         )}

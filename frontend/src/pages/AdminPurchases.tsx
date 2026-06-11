@@ -35,7 +35,7 @@ export default function AdminPurchases() {
   const fetchPurchases = async () => {
     try {
       setRefreshing(true)
-      const response = await axios.get('http://localhost:5000/api/admin/purchases', {
+      const response = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/purchases', {
         headers: { Authorization: `Bearer ${token}` }
       })
 

@@ -47,7 +47,7 @@ function SiteHeadUpdater() {
     if (settings.favicon) {
       const link: HTMLLinkElement = document.querySelector("link[rel~='icon']") || document.createElement('link')
       link.rel = 'icon'
-      link.href = `http://localhost:5000${settings.favicon}`
+      link.href = `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${settings.favicon}`
       document.getElementsByTagName('head')[0].appendChild(link)
     }
   }, [settings])

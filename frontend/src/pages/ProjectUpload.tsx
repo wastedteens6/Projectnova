@@ -44,7 +44,7 @@ export default function ProjectUpload() {
         techStack: formData.tags.split(',').map(t => t.trim())
       }
 
-      await axios.post('http://localhost:5000/api/projects/create', projectData, {
+      await axios.post('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects/create', projectData, {
         headers: { Authorization: `Bearer ${token}` }
       })
 

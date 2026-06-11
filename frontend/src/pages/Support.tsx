@@ -18,7 +18,7 @@ export default function Support() {
     setSuccess('')
     setLoading(true)
     try {
-      await axios.post('http://localhost:5000/api/support/tickets', { subject, message })
+      await axios.post('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/support/tickets', { subject, message })
       setSuccess('Support ticket created successfully!')
       setSubject('')
       setMessage('')

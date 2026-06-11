@@ -46,7 +46,7 @@ export default function AdminCreateProject() {
       const fetchProject = async () => {
         try {
           const token = localStorage.getItem('token')
-          const res = await axios.get(`http://localhost:5000/api/admin/projects/all`, {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/all`, {
             headers: { Authorization: `Bearer ${token}` }
           })
           
@@ -78,13 +78,13 @@ export default function AdminCreateProject() {
 
           if (project.images && project.images.length > 0) {
             setImagePreview(project.images.map((img: string) => 
-              img.startsWith('http') ? img : `http://localhost:5000${img}`
+              img.startsWith('http') ? img : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${img}`
             ))
           }
 
           if (project.videos && project.videos.length > 0) {
             const videoUrl = project.videos[0]
-            setVideoPreview(videoUrl.startsWith('http') ? videoUrl : `http://localhost:5000${videoUrl}`)
+            setVideoPreview(videoUrl.startsWith('http') ? videoUrl : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${videoUrl}`)
           }
 
           setPageLoading(false)
@@ -158,7 +158,7 @@ export default function AdminCreateProject() {
       projectImages.forEach(img => data.append('projectImages', img))
       if (previewVideo) data.append('previewVideo', previewVideo)
 
-      const url = isEditMode ? `http://localhost:5000/api/admin/projects/${id}` : 'http://localhost:5000/api/admin/projects/create'
+      const url = isEditMode ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/${id}` : '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/create'
       const method = isEditMode ? 'put' : 'post'
 
       await axios({ method, url, data, headers: { 'Authorization': `Bearer ${token}` } })

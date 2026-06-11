@@ -30,7 +30,7 @@ export default function AdminSettings() {
   const [mfaError, setMfaError] = useState('')
   const [mfaSuccess, setMfaSuccess] = useState('')
 
-  const API_BASE_URL = 'http://localhost:5000/api'
+  const API_BASE_URL = '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api'
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -232,7 +232,7 @@ export default function AdminSettings() {
                       <label className={`text-xs font-bold uppercase tracking-wider ${muted}`}>Brand Logo</label>
                       <div className={`relative group aspect-video rounded-xl border-2 border-dashed flex items-center justify-center transition-all overflow-hidden ${dk ? 'border-slate-700 bg-slate-800/20 hover:border-purple-500' : 'border-slate-200 bg-slate-50 hover:border-purple-400'}`}>
                         {globalSettings.logo ? (
-                          <img src={`http://localhost:5000${globalSettings.logo}`} alt="Brand Logo" className="w-full h-full object-contain p-4 transition group-hover:scale-105" />
+                          <img src={`${import.meta.env.VITE_API_URL||'http://localhost:5000'}${globalSettings.logo}`} alt="Brand Logo" className="w-full h-full object-contain p-4 transition group-hover:scale-105" />
                         ) : (
                           <div className="flex flex-col items-center gap-2">
                             <span className="text-2xl">🖼️</span>
@@ -260,7 +260,7 @@ export default function AdminSettings() {
                       <label className={`text-xs font-bold uppercase tracking-wider ${muted}`}>Favicon</label>
                       <div className={`relative group w-24 h-24 rounded-xl border-2 border-dashed flex items-center justify-center transition-all overflow-hidden ${dk ? 'border-slate-700 bg-slate-800/20 hover:border-purple-500' : 'border-slate-200 bg-slate-50 hover:border-purple-400'}`}>
                         {globalSettings.favicon ? (
-                          <img src={`http://localhost:5000${globalSettings.favicon}`} alt="Favicon" className="w-full h-full object-contain p-2 transition group-hover:scale-105" />
+                          <img src={`${import.meta.env.VITE_API_URL||'http://localhost:5000'}${globalSettings.favicon}`} alt="Favicon" className="w-full h-full object-contain p-2 transition group-hover:scale-105" />
                         ) : (
                           <div className="flex flex-col items-center gap-1">
                             <span className="text-xl">🎨</span>

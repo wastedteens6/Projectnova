@@ -9,7 +9,7 @@ interface Role {
   created_at?: string
 }
 
-const API = 'http://localhost:5000/api'
+const API = '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api'
 
 const AVAILABLE_PERMISSIONS = [
   { path: '/admin/dashboard', label: 'Dashboard' },

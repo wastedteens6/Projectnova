@@ -14,7 +14,7 @@ const getImageUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
   const formatted = path.startsWith('/') ? path : `/${path}`
-  return `http://localhost:5000${formatted}`
+  return `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${formatted}`
 }
 
 export default function FeaturedProjects() {
@@ -35,7 +35,7 @@ export default function FeaturedProjects() {
   const fetchFeaturedProjects = async () => {
     try {
       setLoading(true)
-      const res = await axios.get('http://localhost:5000/api/projects/featured')
+      const res = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/projects/featured')
       setProjects(res.data.data || [])
       setError('')
     } catch (err) {
@@ -55,7 +55,7 @@ export default function FeaturedProjects() {
     }
 
     try {
-      const res = await axios.get('http://localhost:5000/api/purchases/my-purchases', {
+      const res = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/my-purchases', {
         headers: { Authorization: `Bearer ${token}` }
       })
       

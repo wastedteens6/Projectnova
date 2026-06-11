@@ -1,7 +1,7 @@
 export const downloadReceipt = async (purchaseId, userId, fileName = 'receipt') => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/receipts/download-txt/${purchaseId}?userId=${userId}`
+      `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/receipts/download-txt/${purchaseId}?userId=${userId}`
     );
 
     if (!response.ok) {
@@ -28,7 +28,7 @@ export const downloadReceipt = async (purchaseId, userId, fileName = 'receipt') 
 export const getReceipt = async (purchaseId, userId) => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/receipts/receipt/${purchaseId}?userId=${userId}`
+      `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/receipts/receipt/${purchaseId}?userId=${userId}`
     );
 
     if (!response.ok) {
@@ -45,7 +45,7 @@ export const getReceipt = async (purchaseId, userId) => {
 
 export const recordPurchase = async (projectId, tier, price, userEmail, userName) => {
   try {
-    const response = await fetch('http://localhost:5000/api/purchases/record-purchase', {
+    const response = await fetch('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/record-purchase', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ export const recordPurchase = async (projectId, tier, price, userEmail, userName
 export const checkPurchaseStatus = async (projectId, userId) => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/purchases/check-purchase/${projectId}?userId=${userId}`
+      `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/check-purchase/${projectId}?userId=${userId}`
     );
 
     if (!response.ok) {
@@ -94,7 +94,7 @@ export const checkPurchaseStatus = async (projectId, userId) => {
 
 export const upgradePurchase = async (projectId, newTier, priceIncrease) => {
   try {
-    const response = await fetch('http://localhost:5000/api/purchases/upgrade', {
+    const response = await fetch('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

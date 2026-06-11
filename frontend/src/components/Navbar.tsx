@@ -96,7 +96,7 @@ export default function Navbar() {
             <a href="/" className="flex items-center gap-3 group">
               <div className="h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-105">
                 <img 
-                  src={settings.logo ? `http://localhost:5000${settings.logo}` : "/logo.svg"} 
+                  src={settings.logo ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}${settings.logo}` : "/logo.svg"} 
                   alt={`${settings.siteName} Logo`} 
                   className="h-full w-full object-cover" 
                 />

@@ -98,7 +98,7 @@ export default function Cart() {
                     isLight ? 'bg-slate-100' : 'bg-slate-800'
                   }`}>
                     {item.image ? (
-                      <img src={`http://localhost:5000${item.image}`} alt={item.name} className="w-full h-full object-cover" />
+                      <img src={`${import.meta.env.VITE_API_URL||'http://localhost:5000'}${item.image}`} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center opacity-30">
                         <HiOutlineShoppingBag className="w-8 h-8" />

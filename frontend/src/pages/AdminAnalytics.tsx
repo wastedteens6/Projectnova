@@ -22,7 +22,7 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
-        const ordersRes = await axios.get('http://localhost:5000/api/orders', {
+        const ordersRes = await axios.get('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/orders', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
         const orders = ordersRes.data.data || []
