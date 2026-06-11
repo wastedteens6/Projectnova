@@ -35,7 +35,7 @@ export default function FeaturedProjects() {
   const fetchFeaturedProjects = async () => {
     try {
       setLoading(true)
-      const res = await api.get('/api/projects/featured')
+      const res = await api.get('/projects/featured')
       setProjects(res.data.data || [])
       setError('')
     } catch (err) {
@@ -55,7 +55,7 @@ export default function FeaturedProjects() {
     }
 
     try {
-      const res = await api.get('/api/purchases/my-purchases', {
+      const res = await api.get('/purchases/my-purchases', {
         headers: { Authorization: `Bearer ${token}` }
       })
       

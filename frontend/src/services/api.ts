@@ -1,17 +1,7 @@
 import api from '../lib/api';
-// API Service for frontend
-import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api'
-
-// Export API_BASE for use in other components
-export const API_BASE_URL = API_BASE
-
-const api = axios.create({
-  baseURL: API_BASE,
-  timeout: 10000,
-  withCredentials: true,
-})
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_BASE_URL = `${API_URL}/api`;
 
 // Add token to requests if available
 api.interceptors.request.use((config) => {
@@ -24,11 +14,11 @@ api.interceptors.request.use((config) => {
 
 // Auth Services
 export const authService = {
-  register: (email, name, password) =>
+  register: (email: any, name: any, password: any) =>
     api.post('/auth/register', { email, name, password }),
-  login: (email, password) =>
+  login: (email: any, password: any) =>
     api.post('/auth/login', { email, password }),
-  adminLogin: (email, password) =>
+  adminLogin: (email: any, password: any) =>
     api.post('/auth/admin-login', { email, password }),
   getCurrentUser: () =>
     api.get('/auth/me'),
@@ -40,9 +30,9 @@ export const authService = {
 export const projectService = {
   getAll: () =>
     api.get('/projects'),
-  getBySlug: (slug) =>
+  getBySlug: (slug: any) =>
     api.get(`/projects/${slug}`),
-  create: (projectData) =>
+  create: (projectData: any) =>
     api.post('/projects/create', projectData),
 }
 
@@ -50,15 +40,15 @@ export const projectService = {
 export const cartService = {
   getCart: () =>
     api.get('/cart'),
-  addToCart: (projectId) =>
+  addToCart: (projectId: any) =>
     api.post('/cart/add', { projectId }),
 }
 
 // Checkout Services
 export const checkoutService = {
-  createOrder: (amount, projectIds, email, phone) =>
+  createOrder: (amount: any, projectIds: any, email: any, phone: any) =>
     api.post('/checkout/create-order', { amount, projectIds, email, phone }),
-  verifyPayment: (orderId, paymentId, signature) =>
+  verifyPayment: (orderId: any, paymentId: any, signature: any) =>
     api.post('/checkout/verify-payment', { orderId, paymentId, signature }),
 }
 
@@ -72,7 +62,7 @@ export const orderService = {
 export const supportService = {
   getTickets: () =>
     api.get('/support/tickets'),
-  createTicket: (subject, message) =>
+  createTicket: (subject: any, message: any) =>
     api.post('/support/tickets', { subject, message }),
 }
 
