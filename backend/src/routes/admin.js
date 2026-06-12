@@ -108,18 +108,17 @@ router.post("/create", adminAuth, upload.any(), async (req, res) => {
       `
       INSERT INTO "Project" (
         title, slug, description, category, is_published,
-        technologies, features, tiers, images, videos
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        technologies, features, tiers, media
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `,
       [
         title, slug, description, category,
         isPublished === "true" || isPublished === true,
-        techStackArr,       // text[] column
-        featuresArr,        // text[] column
-        JSON.stringify(tiers), // jsonb column
-        images,             // text[] column
-        videos,             // text[] column
+        JSON.stringify(techStackArr),    // jsonb column
+        JSON.stringify(featuresArr),     // jsonb column
+        JSON.stringify(tiers),           // jsonb column
+        JSON.stringify({ images, videos }), // media jsonb column
       ],
     );
 
@@ -219,9 +218,10 @@ router.put("/:id", adminAuth, upload.any(), async (req, res) => {
       }));
     }
 
-    // Handle file uploads
-    const images = [...(project.images || [])];
-    const videos = [...(project.videos || [])];
+    // Handle file uploads — stored inside media jsonb column
+    const existingMedia = project.media || {};
+    const images = [...(existingMedia.images || [])];
+    const videos = [...(existingMedia.videos || [])];
     const files = req.files || [];
     files.forEach((file) => {
       if (file.fieldname.startsWith("projectImages")) {
@@ -236,18 +236,17 @@ router.put("/:id", adminAuth, upload.any(), async (req, res) => {
       UPDATE "Project" SET
         title = $1, slug = $2, description = $3, category = $4,
         is_published = $5, technologies = $6, features = $7,
-        tiers = $8, images = $9, videos = $10, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+        tiers = $8, media = $9, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
       RETURNING *
     `,
       [
         newTitle, slug, description || project.description, category || project.category,
         isPublished !== undefined ? (isPublished === "true" || isPublished === true) : project.is_published,
-        techStackArr,
-        featuresArr,
+        JSON.stringify(techStackArr),
+        JSON.stringify(featuresArr),
         JSON.stringify(tiers),
-        images,
-        videos,
+        JSON.stringify({ images, videos }),
         id,
       ],
     );
@@ -265,10 +264,10 @@ router.put("/:id", adminAuth, upload.any(), async (req, res) => {
 router.delete("/:id", adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const projectResult = await pool.query('SELECT images, videos FROM "Project" WHERE id = $1', [id]);
+    const projectResult = await pool.query('SELECT media FROM "Project" WHERE id = $1', [id]);
 
     if (projectResult.rows.length > 0) {
-      const { images, videos } = projectResult.rows[0];
+      const { images, videos } = projectResult.rows[0].media || {};
       (images || []).forEach((img) => {
         const p = path.join(".", img);
         if (fs.existsSync(p)) fs.unlinkSync(p);

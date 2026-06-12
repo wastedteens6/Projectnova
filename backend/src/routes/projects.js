@@ -7,13 +7,13 @@ const router = express.Router();
 // Helper to normalize a project row to a consistent frontend-friendly format
 const formatProject = (row) => ({
   ...row,
-  // New schema uses direct array columns; provide both for frontend compat
-  images: row.images || [],
-  videos: row.videos || [],
+  // DB stores images/videos inside the media jsonb column
+  images: row.media?.images || [],
+  videos: row.media?.videos || [],
   tech_stack: row.technologies || [],        // alias for old frontend refs
   technologies: row.technologies || [],
-  image_count: (row.images || []).length,
-  has_video: (row.videos || []).length > 0,
+  image_count: (row.media?.images || []).length,
+  has_video: (row.media?.videos || []).length > 0,
 });
 
 // ─── GET /api/projects/featured ───────────────────────────────────────
@@ -22,7 +22,7 @@ router.get("/featured", async (req, res) => {
     const result = await pool.query(`
       SELECT 
         id, slug, title, description, category,
-        is_published, is_featured, images, videos, technologies, features, tiers, analytics,
+        is_published, is_featured, media, technologies, features, tiers, analytics,
         created_at, updated_at
       FROM "Project"
       WHERE is_published = true AND is_featured = true
@@ -41,7 +41,7 @@ router.get("/", async (req, res) => {
     const result = await pool.query(`
       SELECT 
         id, slug, title, description, category,
-        is_published, is_featured, images, videos, technologies, features, tiers, analytics,
+        is_published, is_featured, media, technologies, features, tiers, analytics,
         created_at, updated_at
       FROM "Project"
       WHERE is_published = true
