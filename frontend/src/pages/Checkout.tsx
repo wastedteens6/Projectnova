@@ -153,7 +153,7 @@ export default function Checkout() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await api.get('/api/checkout/config')
+        const res = await api.get('/checkout/config')
         if (res.data.razorpayKeyId) {
           setRazorpayKey(res.data.razorpayKeyId)
         }
