@@ -295,10 +295,10 @@ router.get("/purchases", adminAuth, async (req, res) => {
         o.id as transaction_id,
         o.user_id,
         o.project_id,
-        tier.name as tier_name,
-        tier.level as tier_level,
+        o.payment_info->>'tier' as tier_name,
+        COALESCE((o.payment_info->>'tierLevel')::int, 1) as tier_level,
         o.amount_in_paise as price_in_paise,
-        o.order_id,
+        o.razorpay_order_id as order_id,
         o.created_at,
         p.title as project_title,
         p.slug,
@@ -307,9 +307,8 @@ router.get("/purchases", adminAuth, async (req, res) => {
         u.name
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
-      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
       LEFT JOIN "User" u ON o.user_id = u.id
-      WHERE o.type = 'purchase' AND o.status = 'completed'
+      WHERE o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
     `);
 

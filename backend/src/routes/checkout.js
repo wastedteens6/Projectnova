@@ -178,16 +178,9 @@ router.post("/verify-payment", verifyToken, async (req, res) => {
       });
     }
 
-    // 4. Resolve tier_id
+    // 4. Resolve tier level from request
     const targetLevel = parseInt(tierLevel, 10) || 1;
-    const tierLookup = await client.query(
-      `SELECT id FROM "Tier" WHERE level = $1 LIMIT 1`,
-      [targetLevel]
-    );
-    const tierId = tierLookup.rows[0]?.id || null;
 
-    // 5. Update all pending orders with signature and mark as 'verified'
-    //    'paid' will be set by the webhook (payment.captured) — or here as fallback
     let lastId = null;
     for (const row of pendingOrders.rows) {
       await client.query(
@@ -195,14 +188,12 @@ router.post("/verify-payment", verifyToken, async (req, res) => {
          SET status = 'verified',
              razorpay_payment_id = $1,
              razorpay_signature = $2,
-             tier_id = $3,
-             payment_info = payment_info || $4,
+             payment_info = payment_info || $3,
              updated_at = NOW()
-         WHERE id = $5`,
+         WHERE id = $4`,
         [
           razorpay_payment_id,
           razorpay_signature,
-          tierId,
           JSON.stringify({ tier: tier || null, tierLevel: targetLevel, verified_at: new Date().toISOString() }),
           row.id,
         ]

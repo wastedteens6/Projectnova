@@ -13,8 +13,8 @@ router.get("/my-purchases", verifyToken, async (req, res) => {
       SELECT 
         o.id as transaction_id,
         o.project_id,
-        tier.name as tier_level,
-        tier.level as tier_numeric_level,
+        o.payment_info->>'tier' as tier_level,
+        COALESCE((o.payment_info->>'tierLevel')::int, 1) as tier_numeric_level,
         o.amount_in_paise as price_in_paise,
         o.razorpay_order_id as order_id,
         o.status,
@@ -24,7 +24,6 @@ router.get("/my-purchases", verifyToken, async (req, res) => {
         p.tiers
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
-      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
       WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
     `,
@@ -53,10 +52,12 @@ router.get("/check-purchase/:projectId", verifyToken, async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT o.*, tier.name as tier_name, tier.level as tier_level, p.tiers
+      SELECT o.*,
+        o.payment_info->>'tier' as tier_name,
+        COALESCE((o.payment_info->>'tierLevel')::int, 1) as tier_level,
+        p.tiers
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
-      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
       WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
       LIMIT 1
@@ -110,8 +111,8 @@ router.get("/user", verifyToken, async (req, res) => {
       SELECT 
         o.id as transaction_id,
         o.project_id,
-        tier.name as tier_level,
-        tier.level as tier_numeric_level,
+        o.payment_info->>'tier' as tier_level,
+        COALESCE((o.payment_info->>'tierLevel')::int, 1) as tier_numeric_level,
         o.amount_in_paise as price_in_paise,
         o.razorpay_order_id as order_id,
         o.status,
@@ -119,11 +120,10 @@ router.get("/user", verifyToken, async (req, res) => {
         p.title as project_title,
         p.slug,
         p.tiers,
-        p.images,
+        p.media,
         p.id as project_uuid
       FROM "Order" o
       LEFT JOIN "Project" p ON o.project_id = p.id
-      LEFT JOIN "Tier" tier ON o.tier_id = tier.id
       WHERE o.user_id = $1 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
       ORDER BY o.created_at DESC
     `,
@@ -142,14 +142,15 @@ router.get("/user", verifyToken, async (req, res) => {
       const tierLevel = row.tier_numeric_level || 1
       const matchedTier = tiersArr.find(t => Number(t.level) === Number(tierLevel))
       const driveLink = matchedTier?.drive_link || null
-      const firstImage = Array.isArray(row.images) && row.images.length > 0 ? row.images[0] : null
+      const projectImages = row.media?.images || []
+      const firstImage = projectImages.length > 0 ? projectImages[0] : null
 
       return {
         id: row.transaction_id,
         name: row.project_title || "Project",
         title: row.project_title,
         slug: row.slug,
-        images: row.images || [],
+        images: projectImages,
         image: firstImage,
         projectId: row.project_uuid,
         tier: row.tier_level,
@@ -211,9 +212,10 @@ router.post("/upgrade-tier/preview", verifyToken, async (req, res) => {
 
     // Get user's latest purchase for this project
     const purchaseResult = await pool.query(
-      `SELECT o.id, o.amount_in_paise, tier.name as tier_name, tier.level as tier_level
+      `SELECT o.id, o.amount_in_paise,
+        o.payment_info->>'tier' as tier_name,
+        COALESCE((o.payment_info->>'tierLevel')::int, 1) as tier_level
        FROM "Order" o
-       LEFT JOIN "Tier" tier ON o.tier_id = tier.id
        WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
        ORDER BY o.created_at DESC LIMIT 1`,
       [userId, project_id],
@@ -335,8 +337,9 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
 
     // Get latest purchase
     const purchaseResult = await client.query(
-      `SELECT o.id, o.amount_in_paise, o.tier_id, tier.level as tier_level
-       FROM "Order" o LEFT JOIN "Tier" tier ON o.tier_id = tier.id
+      `SELECT o.id, o.amount_in_paise,
+        COALESCE((o.payment_info->>'tierLevel')::int, 1) as tier_level
+       FROM "Order" o
        WHERE o.user_id = $1 AND o.project_id = $2 AND o.type = 'purchase' AND o.status IN ('verified', 'paid', 'completed')
        ORDER BY o.created_at DESC LIMIT 1`,
       [userId, project_id],
@@ -370,43 +373,29 @@ router.post("/upgrade-tier/confirm", verifyToken, async (req, res) => {
       upgradePricePaise = Math.round(upgradePrice * 100);
       newTotalPaise = Math.round(targetTier.price * 100);
 
-      // Update existing purchase to new tier
-      const newTierLookup = await client.query(
-        `SELECT id FROM "Tier" WHERE level = $1 LIMIT 1`,
-        [Number(target_tier_level)],
-      );
-      const newTierId = newTierLookup.rows[0]?.id || purchase.tier_id;
-
+      // Update existing purchase to new tier level in payment_info
       await client.query(
-        `UPDATE "Order" SET tier_id = $1, amount_in_paise = $2, updated_at = NOW() WHERE id = $3 AND user_id = $4`,
-        [newTierId, newTotalPaise, purchase.id, userId],
+        `UPDATE "Order" SET amount_in_paise = $1, payment_info = payment_info || $2, updated_at = NOW() WHERE id = $3 AND user_id = $4`,
+        [newTotalPaise, JSON.stringify({ tier: targetTier.name, tierLevel: Number(target_tier_level) }), purchase.id, userId],
       );
     }
-
-    // Look up target tier_id
-    const targetTierLookup = await client.query(
-      `SELECT id FROM "Tier" WHERE level = $1 LIMIT 1`,
-      [Number(target_tier_level)],
-    );
-    const targetTierId = targetTierLookup.rows[0]?.id || null;
 
     // Record upgrade order (audit trail)
     const upgradeInsert = await client.query(
       `INSERT INTO "Order" (
-         user_id, project_id, tier_id, type, status,
+         user_id, project_id, type, status,
          amount_in_paise, razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_info
-       ) VALUES ($1, $2, $3, $4, 'verified', $5, $6, $7, $8, $9)
+       ) VALUES ($1, $2, $3, 'verified', $4, $5, $6, $7, $8)
        RETURNING id`,
       [
         userId,
         project_id,
-        targetTierId,
         "upgrade",
         upgradePricePaise,
         razorpay_order_id,
         razorpay_payment_id || null,
         razorpay_signature || null,
-        JSON.stringify({ tier: targetTier.name, provider: "razorpay" }),
+        JSON.stringify({ tier: targetTier.name, tierLevel: Number(target_tier_level), provider: "razorpay" }),
       ],
     );
 
@@ -444,23 +433,17 @@ router.post("/record-purchase", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     const userId = userRes.rows[0].id;
 
-    const tierLookup = await pool.query(
-      `SELECT id FROM "Tier" WHERE name = $1 LIMIT 1`,
-      [tier],
-    );
-    const tierId = tierLookup.rows[0]?.id || null;
-
     const result = await pool.query(
-      `INSERT INTO "Order" (user_id, project_id, tier_id, type, status, amount_in_paise, order_id)
+      `INSERT INTO "Order" (user_id, project_id, type, status, amount_in_paise, razorpay_order_id, payment_info)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         userId,
         projectId,
-        tierId,
         "purchase",
         "completed",
         Math.round(price * 100),
         orderId,
+        JSON.stringify({ tier, tierLevel: 1 }),
       ],
     );
 
