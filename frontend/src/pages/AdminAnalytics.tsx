@@ -23,7 +23,7 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
-        const ordersRes = await api.get(/api/orders', {
+        const ordersRes = await api.get('/api/orders', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
         const orders = ordersRes.data.data || []

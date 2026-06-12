@@ -64,7 +64,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/settings',
+        `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api`,
         { settings: newSettings },
         { headers: { Authorization: `Bearer ${token}` } }
       );

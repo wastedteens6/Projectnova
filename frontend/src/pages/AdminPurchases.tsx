@@ -36,7 +36,7 @@ export default function AdminPurchases() {
   const fetchPurchases = async () => {
     try {
       setRefreshing(true)
-      const response = await api.get(/api/admin/purchases', {
+      const response = await api.get('/api/admin/purchases', {
         headers: { Authorization: `Bearer ${token}` }
       })
 

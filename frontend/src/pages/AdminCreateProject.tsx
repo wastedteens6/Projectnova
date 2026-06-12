@@ -47,7 +47,7 @@ export default function AdminCreateProject() {
       const fetchProject = async () => {
         try {
           const token = localStorage.getItem('token')
-          const res = await api.get(/api/admin/projects/all`, {
+          const res = await api.get(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/all`, {
             headers: { Authorization: `Bearer ${token}` }
           })
           
@@ -159,7 +159,7 @@ export default function AdminCreateProject() {
       projectImages.forEach(img => data.append('projectImages', img))
       if (previewVideo) data.append('previewVideo', previewVideo)
 
-      const url = isEditMode ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/${id}` : '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/create'
+      const url = isEditMode ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/${id}` : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/create`
       const method = isEditMode ? 'put' : 'post'
 
       await axios({ method, url, data, headers: { 'Authorization': `Bearer ${token}` } })

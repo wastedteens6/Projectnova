@@ -31,7 +31,7 @@ interface Project {
 const getImageUrl = (path?: string) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
-  const baseUrl = '${import.meta.env.VITE_API_URL||'http://localhost:5000'}'
+  const baseUrl = `${import.meta.env.VITE_API_URL||'http://localhost:5000'}`
   const formattedPath = path.startsWith('/') ? path : `/${path}`
   return `${baseUrl}${formattedPath}`
 }
@@ -60,7 +60,7 @@ export default function ProjectDetail() {
     if (!token || !context?.projectId) return
     try {
       setUpgradePriceLoading(true)
-      const res = await fetch('${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ project_id: String(context.projectId), target_tier_level: targetTierLevel }),

@@ -65,13 +65,13 @@ export default function Checkout() {
           try {
             if (pending.isUpgrade) {
               const r = await axios.post(
-                '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview',
+                `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview`,
                 { project_id: String(pending.id), target_tier_level: pending.tierLevel },
                 { headers: { Authorization: `Bearer ${token}` } }
               )
               pending.price = r.data.upgrade_price
             } else {
-              const r = await api.get(/api/projects/${pending.slug}`)
+              const r = await api.get(`/api/projects/${pending.slug}`)
               if (r.data?.success && r.data?.data?.tiers) {
                 const match = r.data.data.tiers.find(
                   (t: any) => Number(t.level) === Number(pending.tierLevel) || t.name === pending.tier
@@ -119,13 +119,13 @@ export default function Checkout() {
             try {
               if (item.isUpgrade) {
                 const r = await axios.post(
-                  '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview',
+                  `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview`,
                   { project_id: String(item.id), target_tier_level: item.tierLevel },
                   { headers: { Authorization: `Bearer ${token}` } }
                 )
                 return { ...item, price: r.data.upgrade_price }
               }
-              const r = await api.get(/api/projects/${item.slug}`)
+              const r = await api.get(`/api/projects/${item.slug}`)
               if (r.data?.success && r.data?.data?.tiers) {
                 const tiers = r.data.data.tiers
                 let m = tiers.find((t: any) => Number(t.level) === Number(item.tierLevel))
@@ -156,7 +156,7 @@ export default function Checkout() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await api.get(/api/checkout/config')
+        const res = await api.get('/api/checkout/config')
         if (res.data.razorpayKeyId) {
           setRazorpayKey(res.data.razorpayKeyId)
         }
@@ -216,7 +216,7 @@ export default function Checkout() {
 
     try {
       const res = await axios.post(
-        '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/create-order',
+        `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/create-order`,
         { amount: totalPrice * 100, projectIds: cartItems.map(i => i.id), phone },
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -235,8 +235,8 @@ export default function Checkout() {
               let finalId = response.razorpay_order_id;
               for (const item of cartItems) {
                 const endpoint = item.isUpgrade 
-                  ? '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/confirm'
-                  : '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/verify-payment';
+                  ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/confirm`
+                  : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/verify-payment`;
                 
                 const verifyRes = await axios.post(
                   endpoint,

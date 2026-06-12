@@ -14,7 +14,7 @@ export default function AdminOrders() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const ordersRes = await api.get(/api/orders', {
+        const ordersRes = await api.get('/api/orders', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
         setOrders(ordersRes.data.data || [])

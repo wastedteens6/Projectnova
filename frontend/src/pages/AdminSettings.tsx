@@ -31,7 +31,7 @@ export default function AdminSettings() {
   const [mfaError, setMfaError] = useState('')
   const [mfaSuccess, setMfaSuccess] = useState('')
 
-  const API_BASE_URL = '${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api'
+  const API_BASE_URL = `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api`
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -76,7 +76,7 @@ export default function AdminSettings() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await api.post(${API_BASE_URL}/settings/upload`, formData, {
+      const res = await api.post(`${API_BASE_URL}/settings/upload`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -97,7 +97,7 @@ export default function AdminSettings() {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) return
-    api.get(${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    api.get(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(res => { if (res.data.user?.mfa_enabled !== undefined) setMfaEnabled(res.data.user.mfa_enabled) })
       .catch(() => {})
   }, [])
@@ -106,7 +106,7 @@ export default function AdminSettings() {
     setMfaLoading(true); setMfaError(''); setMfaSuccess('')
     try {
       const token = localStorage.getItem('token')
-      const res = await api.post(${API_BASE_URL}/auth/mfa/setup`, {}, {
+      const res = await api.post(`${API_BASE_URL}/auth/mfa/setup`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.data.success) throw new Error(res.data.error)
@@ -125,7 +125,7 @@ export default function AdminSettings() {
     setMfaLoading(true); setMfaError('')
     try {
       const token = localStorage.getItem('token')
-      const res = await api.post(${API_BASE_URL}/auth/mfa/verify-setup`, 
+      const res = await api.post(`${API_BASE_URL}/auth/mfa/verify-setup`, 
         { code: mfaCode },
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -145,7 +145,7 @@ export default function AdminSettings() {
     setMfaLoading(true); setMfaError('')
     try {
       const token = localStorage.getItem('token')
-      const res = await api.post(${API_BASE_URL}/auth/mfa/disable`, 
+      const res = await api.post(`${API_BASE_URL}/auth/mfa/disable`, 
         { code: mfaDisableCode },
         { headers: { Authorization: `Bearer ${token}` } }
       )
