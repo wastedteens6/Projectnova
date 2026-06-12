@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
-import { API_BASE_URL } from '../services/api'
+import api from '../lib/api'
 
 interface CustomProject {
   id: string
@@ -40,10 +40,8 @@ export default function AdminCustomProjects() {
         const query = new URLSearchParams()
         if (statusFilter !== 'all') query.append('status', statusFilter)
 
-        const response = await fetch(`${API_BASE_URL}/admin/custom-projects?${query.toString()}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        const data = await response.json()
+        const res = await api.get(`/admin/custom-projects?${query.toString()}`)
+        const data = res.data
         if (data.success) {
           setProjects(data.data || [])
         }
@@ -58,17 +56,9 @@ export default function AdminCustomProjects() {
   }, [statusFilter])
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
-    const token = localStorage.getItem('token')
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/custom-projects/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus, adminNotes })
-      })
-      const data = await response.json()
+      const res = await api.patch(`/admin/custom-projects/${id}`, { status: newStatus, adminNotes })
+      const data = res.data
       if (data.success) {
         setProjects(projects.map(p => p.id === id ? { ...p, status: newStatus as any, admin_notes: adminNotes } : p))
         if (selectedProject?.id === id) {

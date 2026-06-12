@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { API_BASE_URL } from '../services/api'
+import api from '../lib/api'
 
 export default function CustomProjectForm() {
   const { theme } = useTheme()
@@ -126,27 +126,19 @@ export default function CustomProjectForm() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/custom-projects/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          userEmail: formData.email,
-          projectName: formData.projectName,
-          description: formData.description,
-          technologies: formData.technologies,
-          domain: formData.domain,
-          inputOutput: formData.inputOutput,
-          deliverables: formData.deliverables,
-          expectedDeadline: formData.expectedDeadline,
-          phone: formData.phone,
-          budget: formData.budget
-        })
+      const res = await api.post('/custom-projects/submit', {
+        userEmail: formData.email,
+        projectName: formData.projectName,
+        description: formData.description,
+        technologies: formData.technologies,
+        domain: formData.domain,
+        inputOutput: formData.inputOutput,
+        deliverables: formData.deliverables,
+        expectedDeadline: formData.expectedDeadline,
+        phone: formData.phone,
+        budget: formData.budget
       })
-
-      const data = await response.json()
+      const data = res.data
 
       if (data.success) {
         console.log('Form submitted successfully:', data)

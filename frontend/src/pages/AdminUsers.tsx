@@ -1,6 +1,5 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 
@@ -15,7 +14,6 @@ interface User {
   created_at: string
 }
 
-const API = `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api`
 
 const isLockedFn = (u: User) =>
   !!(u.lockout_until && new Date(u.lockout_until) > new Date())
@@ -54,9 +52,8 @@ export default function AdminUsers() {
     setLoading(true)
     try {
       const [ru, rr] = await Promise.all([
-        api.get(`${API}/auth/users`, { headers: { Authorization: `Bearer ${token}` } }),
-        api.get(`${API}/roles`,      { headers: { Authorization: `Bearer ${token}` } })
-          .catch(() => ({ data: { roles: [{ name: 'user' }, { name: 'admin' }] } }))
+        api.get('/auth/users'),
+        api.get('/roles').catch(() => ({ data: { roles: [{ name: 'user' }, { name: 'admin' }] } }))
       ])
       setUsers(ru.data.data || [])
       setRoles(rr.data.roles || [{ name: 'user' }, { name: 'admin' }])
@@ -70,7 +67,7 @@ export default function AdminUsers() {
     if (!window.confirm(`Change role to '${newRole}'?`)) return
     setActionLoading(`role-${userId}`)
     try {
-      await api.patch(`${API}/auth/users/${userId}/role`, { role: newRole }, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/auth/users/${userId}/role`, { role: newRole })
       showToast(`Role → ${newRole}`)
       setUsers(p => p.map(u => u.id === userId ? { ...u, role: newRole } : u))
     } catch (e: any) { showToast(e.response?.data?.error || 'Failed', false) }
@@ -81,7 +78,7 @@ export default function AdminUsers() {
     if (!window.confirm(`Reset MFA for ${name}?`)) return
     setActionLoading(`mfa-${userId}`)
     try {
-      await api.patch(`${API}/auth/users/${userId}/reset-mfa`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/auth/users/${userId}/reset-mfa`, {})
       showToast(`MFA reset for ${name}`)
       setUsers(p => p.map(u => u.id === userId ? { ...u, mfa_enabled: false } : u))
     } catch (e: any) { showToast(e.response?.data?.error || 'Failed', false) }
@@ -91,7 +88,7 @@ export default function AdminUsers() {
   const handleUnlock = async (userId: string, name: string) => {
     setActionLoading(`unlock-${userId}`)
     try {
-      await api.patch(`${API}/auth/users/${userId}/unlock`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/auth/users/${userId}/unlock`, {})
       showToast(`Unlocked ${name}`)
       setUsers(p => p.map(u => u.id === userId ? { ...u, lockout_until: null, failed_login_attempts: 0 } : u))
     } catch (e: any) { showToast(e.response?.data?.error || 'Failed', false) }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { API_BASE_URL } from '../services/api'
+import api from '../lib/api'
 import { useTheme } from '../context/ThemeContext'
 import { HiOutlineBell } from 'react-icons/hi2'
 import { motion } from 'framer-motion'
@@ -17,10 +17,8 @@ export default function NotificationBell() {
     if (!token) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/notifications`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      const data = await response.json()
+      const response = await api.get('/notifications')
+      const data = response.data
       if (data.success) {
         setNotifications(data.data)
         setUnreadCount(data.data.filter((n: any) => !n.is_read).length)
@@ -47,12 +45,8 @@ export default function NotificationBell() {
   }, [])
 
   const markAsRead = async (id: string) => {
-    const token = localStorage.getItem('token')
     try {
-      await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      await api.patch(`/notifications/${id}/read`)
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n))
       setUnreadCount(prev => Math.max(0, prev - 1))
     } catch (err) {
@@ -61,12 +55,8 @@ export default function NotificationBell() {
   }
 
   const markAllAsRead = async () => {
-    const token = localStorage.getItem('token')
     try {
-      await fetch(`${API_BASE_URL}/notifications/read-all`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      await api.patch('/notifications/read-all')
       setNotifications(notifications.map(n => ({ ...n, is_read: true })))
       setUnreadCount(0)
     } catch (err) {
@@ -76,12 +66,8 @@ export default function NotificationBell() {
 
   const clearAllNotifications = async () => {
     if (!window.confirm('Clear all notifications? This cannot be undone.')) return
-    const token = localStorage.getItem('token')
     try {
-      await fetch(`${API_BASE_URL}/notifications/clear-all`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      await api.delete('/notifications/clear-all')
       setNotifications([])
       setUnreadCount(0)
     } catch (err) {

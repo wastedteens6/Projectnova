@@ -60,14 +60,12 @@ export default function ProjectDetail() {
     if (!token || !context?.projectId) return
     try {
       setUpgradePriceLoading(true)
-      const res = await fetch(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ project_id: String(context.projectId), target_tier_level: targetTierLevel }),
+      const res = await api.post('/purchases/upgrade-tier/preview', {
+        project_id: String(context.projectId),
+        target_tier_level: targetTierLevel,
       })
-      const data = await res.json()
-      if (res.ok && data.upgrade_price !== undefined) {
-        setUpgradeDifference(data.upgrade_price)
+      if (res.data && res.data.upgrade_price !== undefined) {
+        setUpgradeDifference(res.data.upgrade_price)
       }
     } catch (err) {
       console.error('Failed to fetch upgrade price:', err)

@@ -1,6 +1,5 @@
 import api from '../lib/api';
 import React, { useState } from 'react'
-import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
 export default function Support() {

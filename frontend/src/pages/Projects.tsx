@@ -1,6 +1,5 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { HiOutlineShoppingCart, HiArrowUpCircle, HiArrowDownTray, HiMagnifyingGlass } from 'react-icons/hi2'

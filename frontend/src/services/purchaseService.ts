@@ -1,16 +1,13 @@
 import api from '../lib/api';
-export const downloadReceipt = async (purchaseId, userId, fileName = 'receipt') => {
+
+export const downloadReceipt = async (purchaseId: string, userId: string, fileName = 'receipt') => {
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/receipts/download-txt/${purchaseId}?userId=${userId}`
+    const response = await api.get(
+      `/receipts/download-txt/${purchaseId}?userId=${userId}`,
+      { responseType: 'blob' }
     );
 
-    if (!response.ok) {
-      throw new Error('Failed to download receipt');
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(response.data);
     const link = document.createElement('a');
     link.href = url;
     link.download = `${fileName}.txt`;
@@ -26,34 +23,25 @@ export const downloadReceipt = async (purchaseId, userId, fileName = 'receipt') 
   }
 };
 
-export const getReceipt = async (purchaseId, userId) => {
+export const getReceipt = async (purchaseId: string, userId: string) => {
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/receipts/receipt/${purchaseId}?userId=${userId}`
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch receipt');
-    }
-
-    const data = await response.json();
-    return data.receipt;
+    const response = await api.get(`/receipts/receipt/${purchaseId}?userId=${userId}`);
+    return response.data.receipt;
   } catch (error) {
     console.error('Error fetching receipt:', error);
-        projectId,
-        newTier,
-        priceIncrease,
-        userId: localStorage.getItem('userId')
-      })
+    throw error;
+  }
+};
+
+export const upgradePurchase = async (projectId: string, newTier: string, priceIncrease: number) => {
+  try {
+    const response = await api.post('/purchases/upgrade-tier/confirm', {
+      projectId,
+      newTier,
+      priceIncrease,
+      userId: localStorage.getItem('userId')
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upgrade purchase');
-    }
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
     console.error('Error upgrading purchase:', error);
     throw error;

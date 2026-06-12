@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
-import axios from "axios";
+import api from "../lib/api";
 
 interface ReceiptData {
   company: {
@@ -44,8 +44,8 @@ export default function Receipt() {
   const fetchReceipt = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/receipts/receipt/${transactionId}`,
+      const response = await api.get(
+        `/receipts/receipt/${transactionId}`,
         {
           headers: {
             Authorization: `Bearer ${token || ""}`,

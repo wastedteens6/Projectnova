@@ -1,6 +1,5 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 
@@ -23,9 +22,7 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
-        const ordersRes = await api.get('/api/orders', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        })
+        const ordersRes = await api.get('/orders')
         const orders = ordersRes.data.data || []
         setTotalOrders(orders.length)
 

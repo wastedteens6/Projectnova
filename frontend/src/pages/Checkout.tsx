@@ -1,7 +1,6 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 import { useSettings } from '../context/SettingsContext'
 
@@ -64,14 +63,13 @@ export default function Checkout() {
           // Always re-verify price from backend (prevents stale/tampered prices)
           try {
             if (pending.isUpgrade) {
-              const r = await axios.post(
-                `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview`,
-                { project_id: String(pending.id), target_tier_level: pending.tierLevel },
-                { headers: { Authorization: `Bearer ${token}` } }
+              const r = await api.post(
+                '/purchases/upgrade-tier/preview',
+                { project_id: String(pending.id), target_tier_level: pending.tierLevel }
               )
               pending.price = r.data.upgrade_price
             } else {
-              const r = await api.get(`/api/projects/${pending.slug}`)
+              const r = await api.get(`/projects/${pending.slug}`)
               if (r.data?.success && r.data?.data?.tiers) {
                 const match = r.data.data.tiers.find(
                   (t: any) => Number(t.level) === Number(pending.tierLevel) || t.name === pending.tier
@@ -118,14 +116,13 @@ export default function Checkout() {
           toCheckout.map(async item => {
             try {
               if (item.isUpgrade) {
-                const r = await axios.post(
-                  `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/preview`,
-                  { project_id: String(item.id), target_tier_level: item.tierLevel },
-                  { headers: { Authorization: `Bearer ${token}` } }
+                const r = await api.post(
+                  '/purchases/upgrade-tier/preview',
+                  { project_id: String(item.id), target_tier_level: item.tierLevel }
                 )
                 return { ...item, price: r.data.upgrade_price }
               }
-              const r = await api.get(`/api/projects/${item.slug}`)
+              const r = await api.get(`/projects/${item.slug}`)
               if (r.data?.success && r.data?.data?.tiers) {
                 const tiers = r.data.data.tiers
                 let m = tiers.find((t: any) => Number(t.level) === Number(item.tierLevel))
@@ -215,10 +212,9 @@ export default function Checkout() {
     }
 
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/create-order`,
-        { amount: totalPrice * 100, projectIds: cartItems.map(i => i.id), phone },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const res = await api.post(
+        '/checkout/create-order',
+        { amount: totalPrice * 100, projectIds: cartItems.map(i => i.id), phone }
       )
 
       // ── Razorpay ──
@@ -235,10 +231,10 @@ export default function Checkout() {
               let finalId = response.razorpay_order_id;
               for (const item of cartItems) {
                 const endpoint = item.isUpgrade 
-                  ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/purchases/upgrade-tier/confirm`
-                  : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/checkout/verify-payment`;
+                  ? '/purchases/upgrade-tier/confirm'
+                  : '/checkout/verify-payment';
                 
-                const verifyRes = await axios.post(
+                const verifyRes = await api.post(
                   endpoint,
                   { 
                     project_id: String(item.id), 
@@ -250,8 +246,7 @@ export default function Checkout() {
                     tier: item.tier || 'Standard', 
                     tierLevel: item.tierLevel || 1, 
                     price: item.price
-                  },
-                  { headers: { Authorization: `Bearer ${token}` } }
+                  }
                 );
                 
                 if (verifyRes.data.id) finalId = verifyRes.data.id;

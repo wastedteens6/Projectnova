@@ -1,7 +1,6 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
 export default function AdminCreateProject() {
@@ -46,10 +45,7 @@ export default function AdminCreateProject() {
     if (isEditMode && id) {
       const fetchProject = async () => {
         try {
-          const token = localStorage.getItem('token')
-          const res = await api.get(`${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/all`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+          const res = await api.get('/admin/projects/all')
           
           const project = res.data.data.find((p: any) => p.id === id)
           if (!project) {
@@ -159,10 +155,14 @@ export default function AdminCreateProject() {
       projectImages.forEach(img => data.append('projectImages', img))
       if (previewVideo) data.append('previewVideo', previewVideo)
 
-      const url = isEditMode ? `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/${id}` : `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api/admin/projects/create`
-      const method = isEditMode ? 'put' : 'post'
-
-      await axios({ method, url, data, headers: { 'Authorization': `Bearer ${token}` } })
+      const response = await api({
+        method: isEditMode ? 'put' : 'post',
+        url: isEditMode ? `/admin/projects/${id}` : '/admin/projects/create',
+        data,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
       showAlert(isEditMode ? 'Project updated successfully!' : 'Project created successfully!', 'success')
       setTimeout(() => navigate('/admin/projects'), 1500)
     } catch (error: any) {

@@ -4,7 +4,6 @@ import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 
 interface Purchase {
   transactionId: string
@@ -36,9 +35,7 @@ export default function AdminPurchases() {
   const fetchPurchases = async () => {
     try {
       setRefreshing(true)
-      const response = await api.get('/api/admin/purchases', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await api.get('/admin/purchases')
 
       if (response.data?.success) {
         setPurchases(response.data.data)

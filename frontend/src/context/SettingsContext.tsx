@@ -1,6 +1,5 @@
 import api from '../lib/api';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 
 interface Settings {
   siteName: string;
@@ -39,7 +38,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refreshSettings = useCallback(async () => {
     try {
-      const response = await api.get('/api/settings');
+      const response = await api.get('/settings');
       if (response.data.success) {
         const dbSettings = response.data.settings;
         setSettings({
@@ -63,8 +62,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateSettings = async (newSettings: Partial<Settings>): Promise<boolean> => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL||'http://localhost:5000'}/api`,
+      const response = await api.put(
+        '/settings',
         { settings: newSettings },
         { headers: { Authorization: `Bearer ${token}` } }
       );

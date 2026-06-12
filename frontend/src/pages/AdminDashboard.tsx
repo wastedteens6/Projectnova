@@ -1,7 +1,6 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
 export default function AdminDashboard() {
@@ -42,20 +41,16 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setRefreshing(true)
-      const projectsRes = await api.get('/api/projects')
+      const projectsRes = await api.get('/projects')
       setProjectCount(projectsRes.data.data?.length || 0)
 
       try {
-        const usersRes = await api.get('/api/auth/users', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const usersRes = await api.get('/auth/users')
         const users = usersRes.data.data || usersRes.data.users || []
         setUserCount(Array.isArray(users) ? users.length : 0)
       } catch { setUserCount(0) }
 
-      const ordersRes = await api.get('/api/orders', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const ordersRes = await api.get('/orders')
       const orders = ordersRes.data.data || []
       setOrderCount(orders.length)
       const revenue = orders.reduce((sum: number, order: any) => sum + (Number(order.amount) || 0), 0)

@@ -1,7 +1,6 @@
 import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { useTheme } from '../context/ThemeContext'
 
 const getImageUrl = (path: string) => {
@@ -20,10 +19,7 @@ export default function AdminProjects() {
 
   const fetchProjects = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await api.get('/api/admin/projects/all', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
+      const res = await api.get('/admin/projects/all')
       setProjects(res.data.data || [])
     } catch (err) {
       console.error('Error fetching projects:', err)
@@ -41,7 +37,7 @@ export default function AdminProjects() {
       const token = localStorage.getItem('token')
       if (!token) return alert('You must be logged in as an admin')
 
-      const res = await api.delete(`/api/admin/projects/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await api.delete(`/admin/projects/${id}`)
       if (res.data.success) fetchProjects()
     } catch (err: any) {
       alert('Failed to delete project: ' + (err.response?.data?.error || err.message))
@@ -53,7 +49,7 @@ export default function AdminProjects() {
       const token = localStorage.getItem('token')
       if (!token) return alert('You must be logged in as an admin')
 
-      const res = await api.put(`/api/admin/projects/${id}/toggle-featured`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await api.put(`/admin/projects/${id}/toggle-featured`)
       if (res.data.success) fetchProjects()
     } catch (err: any) {
       alert('Failed to toggle featured status: ' + (err.response?.data?.error || err.message))

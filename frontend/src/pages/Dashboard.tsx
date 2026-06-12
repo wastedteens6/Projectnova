@@ -2,7 +2,6 @@ import api from '../lib/api';
 import React, { useState, useEffect } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
-import { API_BASE_URL } from '../services/api'
 
 export default function Dashboard() {
   const { theme } = useTheme()
@@ -37,23 +36,12 @@ export default function Dashboard() {
       setRefreshing(true)
 
       const [resPurchases, resCustom] = await Promise.all([
-        fetch(`${API_BASE_URL}/purchases/user?email=${encodeURIComponent(email)}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${API_BASE_URL}/custom-projects/my-requests`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        api.get(`/purchases/user?email=${encodeURIComponent(email)}`),
+        api.get('/custom-projects/my-requests').catch(() => ({ data: { data: [] } }))
       ])
 
-      if (resPurchases.ok) {
-        const data = await resPurchases.json()
-        setPurchasedProjects(data.data || [])
-      }
-
-      if (resCustom.ok) {
-        const data = await resCustom.json()
-        setCustomRequests(data.data || [])
-      }
+      setPurchasedProjects(resPurchases.data.data || [])
+      setCustomRequests(resCustom.data.data || [])
 
       setUserEmail(email)
       const storedUserName = localStorage.getItem('userName')
@@ -75,9 +63,8 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) return
-    fetch(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { if (d.user?.mfa_enabled !== undefined) setMfaEnabled(d.user.mfa_enabled) })
+    api.get('/auth/me')
+      .then(r => { if (r.data.user?.mfa_enabled !== undefined) setMfaEnabled(r.data.user.mfa_enabled) })
       .catch(() => {})
   }, [])
 
@@ -97,47 +84,33 @@ export default function Dashboard() {
   const handleMfaSetup = async () => {
     setMfaLoading(true); setMfaError(''); setMfaSuccess('')
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/auth/mfa/setup`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json()
+      const res = await api.post('/auth/mfa/setup')
+      const data = res.data
       if (!data.success) throw new Error(data.error)
       setMfaQr(data.qrDataUrl); setMfaSecret(data.secret); setMfaSetupStep('scan')
-    } catch (err: any) { setMfaError(err.message || 'Setup failed') } finally { setMfaLoading(false) }
+    } catch (err: any) { setMfaError(err.response?.data?.error || err.message || 'Setup failed') } finally { setMfaLoading(false) }
   }
 
   const handleMfaVerifySetup = async () => {
     if (mfaCode.length !== 6) return
     setMfaLoading(true); setMfaError('')
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/auth/mfa/verify-setup`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: mfaCode }),
-      })
-      const data = await res.json()
+      const res = await api.post('/auth/mfa/verify-setup', { code: mfaCode })
+      const data = res.data
       if (!data.success) throw new Error(data.error)
       setMfaEnabled(true); setMfaSetupStep('done'); setMfaSuccess('MFA enabled!'); setMfaCode('')
-    } catch (err: any) { setMfaError(err.message || 'Invalid code') } finally { setMfaLoading(false) }
+    } catch (err: any) { setMfaError(err.response?.data?.error || err.message || 'Invalid code') } finally { setMfaLoading(false) }
   }
 
   const handleMfaDisable = async () => {
     if (mfaDisableCode.length !== 6) return
     setMfaLoading(true); setMfaError('')
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`${API_BASE_URL}/auth/mfa/disable`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: mfaDisableCode }),
-      })
-      const data = await res.json()
+      const res = await api.post('/auth/mfa/disable', { code: mfaDisableCode })
+      const data = res.data
       if (!data.success) throw new Error(data.error)
       setMfaEnabled(false); setMfaSetupStep('idle'); setMfaDisableCode(''); setMfaSuccess('MFA disabled.')
-    } catch (err: any) { setMfaError(err.message || 'Invalid code') } finally { setMfaLoading(false) }
+    } catch (err: any) { setMfaError(err.response?.data?.error || err.message || 'Invalid code') } finally { setMfaLoading(false) }
   }
 
   const handleRemoveFromCart = (id: string) => {
