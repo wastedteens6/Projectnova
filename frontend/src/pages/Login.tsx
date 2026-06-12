@@ -449,13 +449,7 @@ export default function Login() {
           )}
         </div>
 
-        {/* Floating Elements */}
-        <div className={`absolute -top-10 -right-10 w-20 h-20 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-bounce ${
-          isLight ? 'bg-purple-400' : 'bg-purple-600'
-        }`} />
-        <div className={`absolute -bottom-10 -left-10 w-20 h-20 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-bounce ${
-          isLight ? 'bg-cyan-400' : 'bg-cyan-600'
-        }`} style={{ animationDelay: '1s' }} />
+
       </div>
     </div>
   )

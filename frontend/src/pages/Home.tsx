@@ -49,23 +49,7 @@ export default function Home() {
     }`}>
       {/* Hero Section */}
       <section className={`relative overflow-hidden pt-32 pb-20 px-4 transition-all duration-300 bg-transparent`}>
-        {/* Background gradient animation */}
-        <div className={`absolute inset-0 transition-all duration-300 ${
-          isLight
-            ? 'bg-gradient-to-br from-purple-100/10 via-transparent to-cyan-100/10'
-            : 'bg-gradient-to-br from-purple-900/10 via-transparent to-cyan-900/10'
-        }`}></div>
-        
-        {/* Animated background elements */}
-        <div className={`absolute top-20 left-10 w-72 h-72 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob transition-colors duration-300 ${
-          isLight ? 'bg-purple-400' : 'bg-purple-500'
-        }`}></div>
-        <div className={`absolute top-40 right-10 w-72 h-72 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-2000 transition-colors duration-300 ${
-          isLight ? 'bg-cyan-400' : 'bg-cyan-500'
-        }`}></div>
-        <div className={`absolute -bottom-8 left-20 w-72 h-72 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-4000 transition-colors duration-300 ${
-          isLight ? 'bg-blue-400' : 'bg-blue-500'
-        }`}></div>
+
 
         <div className="container relative z-10 max-w-6xl mx-auto pointer-events-auto">
           <div className="text-center mb-12">

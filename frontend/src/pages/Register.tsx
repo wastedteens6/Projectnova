@@ -134,18 +134,7 @@ export default function Register() {
     <div className={`min-h-screen flex items-center justify-center pt-20 pb-20 px-4 relative overflow-hidden transition-all duration-300 w-full pointer-events-none ${
       isLight ? 'text-slate-900 bg-transparent' : 'text-white bg-transparent'
     }`}>
-      {/* Animated Background Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-20 -left-32 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse transition-all duration-300 ${
-          isLight ? 'bg-purple-400' : 'bg-purple-600'
-        }`}></div>
-        <div className={`absolute -bottom-32 right-10 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse transition-all duration-300 ${
-          isLight ? 'bg-cyan-400' : 'bg-cyan-600'
-        }`} style={{ animationDelay: '2s' }}></div>
-        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse transition-all duration-300 ${
-          isLight ? 'bg-blue-400' : 'bg-blue-600'
-        }`} style={{ animationDelay: '4s' }}></div>
-      </div>
+
 
       <div className="relative z-10 w-full max-w-md pointer-events-auto">
         {/* Card Container */}
@@ -528,13 +517,7 @@ export default function Register() {
           )}
         </div>
 
-        {/* Floating Elements */}
-        <div className={`absolute -top-10 -right-10 w-20 h-20 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-bounce transition-all duration-300 ${
-          isLight ? 'bg-purple-400' : 'bg-purple-600'
-        }`}></div>
-        <div className={`absolute -bottom-10 -left-10 w-20 h-20 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-bounce transition-all duration-300 ${
-          isLight ? 'bg-cyan-400' : 'bg-cyan-600'
-        }`} style={{ animationDelay: '1s' }}></div>
+
       </div>
     </div>
   )
